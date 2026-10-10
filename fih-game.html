@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎣 RNG Рыбалка Deluxe</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ ЛОГ ОБНОВЛЕНИЙ ============ -->
+<div class="update-log hidden" id="updateLog">
+  <div class="ul-header">
+    <span class="ul-icon">📢</span>
+    <span class="ul-title">Обновление игры!</span>
+    <button class="ul-close" id="updateLogClose" title="Закрыть">✕</button>
+  </div>
+  <div class="ul-body" id="updateLogBody"></div>
+</div>
+
+<div class="multitab-overlay" id="multitabOverlay">
+  <div class="multitab-box">
+    <div class="mt-icon">⚠️</div>
+    <h2>Игра уже открыта</h2>
+    <p>Прогресс сохраняется только в одной вкладке.<br>
+       Закройте эту вкладку и вернитесь к уже открытой игре.</p>
+  </div>
+</div>
+
+<div class="top-right-bar">
+  <button class="reset-btn-top" id="resetBtn" title="Сбросить весь прогресс">
+    <span class="rb-icon">🗑️</span>
+    <span class="rb-text">Сброс</span>
+  </button>
+</div>
+
+<div class="game-wrapper">
+  <div class="game-container">
+    <h1>🎣 RNG Рыбалка</h1>
+    <p class="subtitle">DELUXE EDITION</p>
+
+    <div class="aquarium-boost-bar" id="aqBoostBar">
+      <span class="aqb-icon">🐠</span>
+      <span class="aqb-text">Буст аквариума: <strong id="aqBoostValue">+0%</strong></span>
+      <span class="aqb-count" id="aqCount">0/1</span>
+    </div>
+
+    <div class="buff-bar hidden" id="buffBar">
+      <span class="buff-icon">✨</span>
+      <span>Буст: <strong id="buffLuckValue">+0%</strong> удача · <strong id="buffSpeedValue">+0%</strong> скорость · <strong id="buffSellValue">+0%</strong> цена</span>
+      <span class="buff-timer" id="buffTimer">0s</span>
+    </div>
+
+    <div class="rat-bar hidden" id="ratBar">
+      <div class="rat-info">
+        <span class="rat-emoji" id="ratEmoji">🐀</span>
+        <span class="rat-text">Крыса: <strong id="ratState">голодна</strong></span>
+      </div>
+      <div class="rat-actions">
+        <button class="rat-feed-btn" id="ratFeedBtn">🍽 Покормить</button>
+        <button class="rat-toggle-btn" id="ratToggleBtn" title="Свернуть">➖</button>
+      </div>
+    </div>
+    <div class="rat-mini hidden" id="ratMini">
+      <button class="rat-mini-btn" id="ratMiniBtn" title="Крыса">🐀</button>
+    </div>
+
+    <div class="catch-display" id="catchDisplay">
+      <div class="fish-emoji" id="fishEmoji">🌊</div>
+      <div class="fish-name" id="fishName">Забрось удочку!</div>
+      <div class="fish-rarity" id="fishRarity"></div>
+      <div class="fish-value" id="fishValue"></div>
+    </div>
+
+    <div class="decision-row" id="decisionRow">
+      <button class="dec-btn keep" id="keepBtn">
+        <span class="dec-icon">🎒</span>
+        <span class="dec-text">В инвентарь</span>
+      </button>
+      <button class="dec-btn sell" id="sellBtn">
+        <span class="dec-icon">💰</span>
+        <span class="dec-text">Продать</span>
+        <span class="dec-price" id="decPrice"></span>
+      </button>
+    </div>
+
+    <div class="main-actions">
+      <button class="big-btn roll" id="rollBtn">
+        <span class="bb-icon">🎣</span>
+        <span class="bb-text">Забросить</span>
+      </button>
+
+      <div class="autoroll-wrap">
+        <div class="toggle-autoroll locked" id="autorollToggle" title="Купите в магазине">
+          <span id="autorollIcon">🔒</span>
+          <span>АВТО</span>
+        </div>
+        <button class="small-gear" id="autorollSettingsBtn" title="Настройки авторолла">
+          ⚙️
+        </button>
+      </div>
+    </div>
+
+    <div class="rod2-toggle hidden" id="rod2ToggleRow">
+      <div class="rod2-toggle" id="rod2Toggle">
+        <span class="r2-icon" id="rod2Icon">🎏</span>
+        <span class="r2-text">Вторая удочка</span>
+        <span class="r2-state" id="rod2State">ВКЛ</span>
+      </div>
+    </div>
+
+    <div class="extra-bar hidden" id="extraBar">
+      <button class="big-btn minigame" id="minigameBtn">
+        <span class="bb-icon">🎯</span>
+        <span class="bb-text">Мини-игры</span>
+        <span class="bb-badge" id="minigameBadge">0</span>
+      </button>
+      <button class="big-btn casino hidden" id="casinoBtn">
+        <span class="bb-icon">🎰</span>
+        <span class="bb-text">Казино</span>
+      </button>
+    </div>
+
+    <div class="stats single">
+      <div class="stat">
+        <span class="stat-label">Монеты</span>
+        <span class="stat-value gold" id="coinsDisplay">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="corner-buttons">
+  <button class="corner-btn wide" id="shopBtn" title="Магазин">
+    <span class="cb-icon">🛒</span>
+    <span class="cb-text">Магазин</span>
+  </button>
+  <button class="corner-btn wide" id="inventoryBtn" title="Инвентарь">
+    <span class="cb-icon">🎒</span>
+    <span class="cb-text">Инвентарь</span>
+  </button>
+  <button class="corner-btn" id="bookBtn" title="Индекс рыб">📖</button>
+  <button class="corner-btn" id="aquariumBtn" title="Аквариум">
+    🐠
+    <span class="badge green" id="aqBadge">0/1</span>
+  </button>
+</div>
+
+<div class="modal-overlay" id="shopModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🛒 Магазин</h2>
+      <button class="modal-close" data-close="shopModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="balance-info">
+        <span>Ваш баланс: </span>
+        <span class="balance-value">💰 <span id="shopCoins">0</span></span>
+      </div>
+      <div id="shopItems"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bookModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📖 Индекс рыб</h2>
+      <button class="modal-close" data-close="bookModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="book-stats">
+        <div class="bs-item">
+          <div class="bs-label">Открыто</div>
+          <div class="bs-value" id="bookProgress">0 / 0</div>
+        </div>
+        <div class="bs-item">
+          <div class="bs-label">Всего поймано</div>
+          <div class="bs-value" id="bookTotalCaught">0</div>
+        </div>
+        <div class="bs-item">
+          <div class="bs-label">Рекорд 💰</div>
+          <div class="bs-value gold" id="bookBestValue">0</div>
+        </div>
+      </div>
+      <div class="book-note">
+        Шансы указаны от базового пула (без бонусов удачи)
+      </div>
+      <div id="bookList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="inventoryModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🎒 Инвентарь</h2>
+      <button class="modal-close" data-close="inventoryModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="balance-info">
+        <span>Ваш баланс: </span>
+        <span class="balance-value">💰 <span id="inventoryCoins">0</span></span>
+      </div>
+      <div id="inventoryList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aquariumModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🐠 Аквариум</h2>
+      <button class="modal-close" data-close="aquariumModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="aquarium-info">
+        Размещайте <strong style="color:#fbbf24">Ультимативных</strong> или
+        <strong style="color:#999">Экзотических</strong> рыб.<br>
+        Экзотика даёт <strong>×2.5 больше буста</strong>, чем ультима!<br>
+        <span style="font-size: 11px; opacity: 0.7;">Буст увеличивает цену продажи</span>
+      </div>
+      <div class="aquarium-slots" id="aquariumSlots"></div>
+      <div class="boost-info">
+        Общий буст: <strong id="boostValue">+0%</strong>
+      </div>
+      <h4 class="section-title">Доступные рыбы</h4>
+      <div id="aquariumAvailable"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="autorollModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚙️ Настройки Автопроката</h2>
+      <button class="modal-close" data-close="autorollModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="autoroll-setting">
+        <h4>Оставлять редкости</h4>
+        <p class="hint">Если ничего не выбрано — все продаются</p>
+        <div class="filter-row" id="rarityFilters"></div>
+      </div>
+      <div class="autoroll-setting">
+        <h4>Мин. цена продажи</h4>
+        <p class="hint">Рыбы дешевле будут автоматически продаваться</p>
+        <div class="price-slider-row">
+          <input type="range" id="minPriceSlider" min="0" max="100000" step="100" value="0">
+          <div class="slider-value">💰 <span id="minPriceValue">0</span></div>
+        </div>
+      </div>
+      <div class="autoroll-setting">
+        <h4>Оставлять виды рыб</h4>
+        <p class="hint">Кликните чтобы включить/выключить</p>
+        <div class="filter-row" id="speciesFilters"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="minigameModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🎯 Мини-игры</h2>
+      <button class="modal-close" data-close="minigameModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="balance-info">
+        У вас <strong id="minigameTokens">0</strong> / <strong>15</strong> жетонов<br>
+        <span style="font-size: 11px; opacity: 0.7;">
+          +1 жетон за 15 ручных роллов · Купить: 1000 💰 · Макс: 15
+        </span>
+      </div>
+      <button class="buy-token-btn" id="buyTokenBtn">💰 Купить жетон (1000)</button>
+      <div class="cooldown-bar hidden" id="minigameCooldownBar">
+        ⏱ Кулдаун: <strong id="minigameCooldownValue">0</strong> сек
+      </div>
+      <div id="minigameList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="casinoModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🎰 Казино</h2>
+      <button class="modal-close" data-close="casinoModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="casino-info">
+        Выберите рыбу и множитель — попробуйте продать дороже!<br>
+        <span style="color: #fbbf24;">Чем выше множитель — тем меньше шанс.</span>
+      </div>
+
+      <div id="casinoStep1">
+        <h4 class="section-title" style="margin-top: 0;">Выберите рыбу из инвентаря:</h4>
+        <div id="casinoFishList"></div>
+      </div>
+
+      <div id="casinoStep2" class="hidden">
+        <button class="casino-back-btn" id="casinoBackBtn">← Назад</button>
+        <div class="casino-selected" id="casinoSelected"></div>
+        <h4 class="section-title" style="margin-top: 15px;">Выберите множитель:</h4>
+        <div class="casino-multipliers" id="casinoMultipliers"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resetModal">
+  <div class="modal reset-modal">
+    <div class="modal-header">
+      <h2>⚠️ Сброс прогресса</h2>
+      <button class="modal-close" data-close="resetModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="reset-warning">
+        <div class="rw-icon">💀</div>
+        <div class="rw-text">
+          <strong>ВНИМАНИЕ!</strong> Это действие <u>полностью удалит</u>:
+        </div>
+        <ul class="rw-list">
+          <li>💰 Все монеты</li>
+          <li>🎒 Весь инвентарь рыбы</li>
+          <li>📖 Открытые виды в индексе</li>
+          <li>🐠 Весь аквариум</li>
+          <li>⬆️ Все улучшения и уровни</li>
+          <li>🎯 Жетоны мини-игр</li>
+        </ul>
+        <div class="rw-text" style="margin-top: 12px;">
+          Это действие <strong style="color:#f43f5e;">НЕОБРАТИМО</strong>.
+        </div>
+      </div>
+
+      <div class="reset-step" id="resetStep1">
+        <div class="rs-label">Шаг 1 / 2 — Введите код подтверждения:</div>
+        <div class="rs-code" id="resetCode1">-------</div>
+        <input type="text" id="resetInput1" class="reset-input" maxlength="7"
+               placeholder="Введите 7 цифр" autocomplete="off" inputmode="numeric">
+        <div class="rs-error" id="resetError1"></div>
+        <div class="reset-actions">
+          <button class="reset-confirm-btn" id="resetConfirm1">Подтвердить шаг 1</button>
+        </div>
+      </div>
+
+      <div class="reset-step hidden" id="resetStep2">
+        <div class="rs-label">Шаг 2 / 2 — Введите код ещё раз:</div>
+        <div class="rs-code" id="resetCode2">-------</div>
+        <input type="text" id="resetInput2" class="reset-input" maxlength="7"
+               placeholder="Введите 7 цифр" autocomplete="off" inputmode="numeric">
+        <div class="rs-error" id="resetError2"></div>
+        <div class="reset-actions">
+          <button class="reset-final-btn" id="resetConfirm2">💀 СБРОСИТЬ ВСЁ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ratFeedModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🐀 Покормить крысу</h2>
+      <button class="modal-close" data-close="ratFeedModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="balance-info">
+        Крыса будет довольна 5 минут:<br>
+        <strong style="color:#4ade80;">+1% удача</strong> · <strong style="color:#fbbf24;">+2% цена продажи</strong><br>
+        <span style="font-size: 11px; opacity: 0.7;">Отсылка на <a href="https://astral228777.github.io/rat-coin-game/" target="_blank" style="color:#fbbf24; text-decoration:underline;">Rat Coin Game</a> 🐀💰</span>
+      </div>
+      <h4 class="section-title" style="margin-top: 0;">Выберите рыбу:</h4>
+      <div id="ratFishList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
