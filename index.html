@@ -4,16 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎣 RNG Рыбалка Deluxe</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎣</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<noscript>
+  <div style="position:fixed;inset:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;z-index:99999;font-size:18px;text-align:center;padding:20px;">
+    Для игры нужен JavaScript.<br>Включите его в настройках браузера.
+  </div>
+</noscript>
 
 <!-- ============ ЛОГ ОБНОВЛЕНИЙ ============ -->
 <div class="update-log hidden" id="updateLog">
   <div class="ul-header">
     <span class="ul-icon">📢</span>
     <span class="ul-title">Обновление игры!</span>
-    <button class="ul-close" id="updateLogClose" title="Закрыть">✕</button>
+    <button class="ul-close" id="updateLogClose" title="Закрыть" aria-label="Закрыть лог обновлений">✕</button>
   </div>
   <div class="ul-body" id="updateLogBody"></div>
 </div>
@@ -28,7 +35,7 @@
 </div>
 
 <div class="top-right-bar">
-  <button class="reset-btn-top" id="resetBtn" title="Сбросить весь прогресс">
+  <button class="reset-btn-top" id="resetBtn" title="Сбросить весь прогресс" aria-label="Сбросить весь прогресс">
     <span class="rb-icon">🗑️</span>
     <span class="rb-text">Сброс</span>
   </button>
@@ -39,7 +46,7 @@
     <h1>🎣 RNG Рыбалка</h1>
     <p class="subtitle">DELUXE EDITION</p>
 
-    <div class="aquarium-boost-bar" id="aqBoostBar">
+    <div class="aquarium-boost-bar">
       <span class="aqb-icon">🐠</span>
       <span class="aqb-text">Буст аквариума: <strong id="aqBoostValue">+0%</strong></span>
       <span class="aqb-count" id="aqCount">0/1</span>
@@ -58,11 +65,11 @@
       </div>
       <div class="rat-actions">
         <button class="rat-feed-btn" id="ratFeedBtn">🍽 Покормить</button>
-        <button class="rat-toggle-btn" id="ratToggleBtn" title="Свернуть">➖</button>
+        <button class="rat-toggle-btn" id="ratToggleBtn" title="Свернуть" aria-label="Свернуть панель крысы">➖</button>
       </div>
     </div>
     <div class="rat-mini hidden" id="ratMini">
-      <button class="rat-mini-btn" id="ratMiniBtn" title="Крыса">🐀</button>
+      <button class="rat-mini-btn" id="ratMiniBtn" title="Крыса" aria-label="Открыть панель крысы">🐀</button>
     </div>
 
     <div class="catch-display" id="catchDisplay">
@@ -91,19 +98,19 @@
       </button>
 
       <div class="autoroll-wrap">
-        <div class="toggle-autoroll locked" id="autorollToggle" title="Купите в магазине">
+        <div class="toggle-autoroll locked" id="autorollToggle" title="Купите в магазине" role="button" tabindex="0" aria-label="Авторолл">
           <span id="autorollIcon">🔒</span>
           <span>АВТО</span>
         </div>
-        <button class="small-gear" id="autorollSettingsBtn" title="Настройки авторолла">
+        <button class="small-gear" id="autorollSettingsBtn" title="Настройки авторолла" aria-label="Настройки авторолла">
           ⚙️
         </button>
       </div>
     </div>
 
     <div class="rod2-toggle hidden" id="rod2ToggleRow">
-      <div class="rod2-toggle" id="rod2Toggle">
-        <span class="r2-icon" id="rod2Icon">🎏</span>
+      <div class="rod2-toggle" id="rod2Toggle" role="button" tabindex="0" aria-label="Переключить вторую удочку">
+        <span class="r2-icon">🎏</span>
         <span class="r2-text">Вторая удочка</span>
         <span class="r2-state" id="rod2State">ВКЛ</span>
       </div>
@@ -131,26 +138,26 @@
 </div>
 
 <div class="corner-buttons">
-  <button class="corner-btn wide" id="shopBtn" title="Магазин">
+  <button class="corner-btn wide" id="shopBtn" title="Магазин" aria-label="Магазин">
     <span class="cb-icon">🛒</span>
     <span class="cb-text">Магазин</span>
   </button>
-  <button class="corner-btn wide" id="inventoryBtn" title="Инвентарь">
+  <button class="corner-btn wide" id="inventoryBtn" title="Инвентарь" aria-label="Инвентарь">
     <span class="cb-icon">🎒</span>
     <span class="cb-text">Инвентарь</span>
   </button>
-  <button class="corner-btn" id="bookBtn" title="Индекс рыб">📖</button>
-  <button class="corner-btn" id="aquariumBtn" title="Аквариум">
+  <button class="corner-btn" id="bookBtn" title="Индекс рыб" aria-label="Индекс рыб">📖</button>
+  <button class="corner-btn" id="aquariumBtn" title="Аквариум" aria-label="Аквариум">
     🐠
     <span class="badge green" id="aqBadge">0/1</span>
   </button>
 </div>
 
-<div class="modal-overlay" id="shopModal">
+<div class="modal-overlay" id="shopModal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🛒 Магазин</h2>
-      <button class="modal-close" data-close="shopModal">✕</button>
+      <h2 id="shopTitle">🛒 Магазин</h2>
+      <button class="modal-close" data-close="shopModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="balance-info">
@@ -162,11 +169,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="bookModal">
+<div class="modal-overlay" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>📖 Индекс рыб</h2>
-      <button class="modal-close" data-close="bookModal">✕</button>
+      <h2 id="bookTitle">📖 Индекс рыб</h2>
+      <button class="modal-close" data-close="bookModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="book-stats">
@@ -191,11 +198,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="inventoryModal">
+<div class="modal-overlay" id="inventoryModal" role="dialog" aria-modal="true" aria-labelledby="invTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🎒 Инвентарь</h2>
-      <button class="modal-close" data-close="inventoryModal">✕</button>
+      <h2 id="invTitle">🎒 Инвентарь</h2>
+      <button class="modal-close" data-close="inventoryModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="balance-info">
@@ -207,11 +214,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="aquariumModal">
+<div class="modal-overlay" id="aquariumModal" role="dialog" aria-modal="true" aria-labelledby="aqTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🐠 Аквариум</h2>
-      <button class="modal-close" data-close="aquariumModal">✕</button>
+      <h2 id="aqTitle">🐠 Аквариум</h2>
+      <button class="modal-close" data-close="aquariumModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="aquarium-info">
@@ -230,11 +237,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="autorollModal">
+<div class="modal-overlay" id="autorollModal" role="dialog" aria-modal="true" aria-labelledby="arTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>⚙️ Настройки Автопроката</h2>
-      <button class="modal-close" data-close="autorollModal">✕</button>
+      <h2 id="arTitle">⚙️ Настройки Автопроката</h2>
+      <button class="modal-close" data-close="autorollModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="autoroll-setting">
@@ -259,11 +266,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="minigameModal">
+<div class="modal-overlay" id="minigameModal" role="dialog" aria-modal="true" aria-labelledby="mgTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🎯 Мини-игры</h2>
-      <button class="modal-close" data-close="minigameModal">✕</button>
+      <h2 id="mgTitle">🎯 Мини-игры</h2>
+      <button class="modal-close" data-close="minigameModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="balance-info">
@@ -281,16 +288,17 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="casinoModal">
+<div class="modal-overlay" id="casinoModal" role="dialog" aria-modal="true" aria-labelledby="casinoTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🎰 Казино</h2>
-      <button class="modal-close" data-close="casinoModal">✕</button>
+      <h2 id="casinoTitle">🎰 Казино</h2>
+      <button class="modal-close" data-close="casinoModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="casino-info">
         Выберите рыбу и множитель — попробуйте продать дороже!<br>
-        <span style="color: #fbbf24;">Чем выше множитель — тем меньше шанс.</span>
+        <span style="color: #fbbf24;">Чем выше множитель — тем меньше шанс.</span><br>
+        <span style="color: #f43f5e; font-size: 11px;">⚠️ При провале рыба теряется!</span>
       </div>
 
       <div id="casinoStep1">
@@ -308,11 +316,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="resetModal">
+<div class="modal-overlay" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
   <div class="modal reset-modal">
     <div class="modal-header">
-      <h2>⚠️ Сброс прогресса</h2>
-      <button class="modal-close" data-close="resetModal">✕</button>
+      <h2 id="resetTitle">⚠️ Сброс прогресса</h2>
+      <button class="modal-close" data-close="resetModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="reset-warning">
@@ -331,11 +339,14 @@
         <div class="rw-text" style="margin-top: 12px;">
           Это действие <strong style="color:#f43f5e;">НЕОБРАТИМО</strong>.
         </div>
+        <div class="rw-text" style="margin-top: 16px; font-size: 12px; opacity: 0.8;">
+          Код подтверждения (введите его на шагах 1 и 2):
+        </div>
+        <div class="rs-code" id="resetCode1">-------</div>
       </div>
 
       <div class="reset-step" id="resetStep1">
         <div class="rs-label">Шаг 1 / 2 — Введите код подтверждения:</div>
-        <div class="rs-code" id="resetCode1">-------</div>
         <input type="text" id="resetInput1" class="reset-input" maxlength="7"
                placeholder="Введите 7 цифр" autocomplete="off" inputmode="numeric">
         <div class="rs-error" id="resetError1"></div>
@@ -346,7 +357,6 @@
 
       <div class="reset-step hidden" id="resetStep2">
         <div class="rs-label">Шаг 2 / 2 — Введите код ещё раз:</div>
-        <div class="rs-code" id="resetCode2">-------</div>
         <input type="text" id="resetInput2" class="reset-input" maxlength="7"
                placeholder="Введите 7 цифр" autocomplete="off" inputmode="numeric">
         <div class="rs-error" id="resetError2"></div>
@@ -358,11 +368,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="ratFeedModal">
+<div class="modal-overlay" id="ratFeedModal" role="dialog" aria-modal="true" aria-labelledby="ratTitle">
   <div class="modal">
     <div class="modal-header">
-      <h2>🐀 Покормить крысу</h2>
-      <button class="modal-close" data-close="ratFeedModal">✕</button>
+      <h2 id="ratTitle">🐀 Покормить крысу</h2>
+      <button class="modal-close" data-close="ratFeedModal" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="balance-info">
@@ -376,7 +386,7 @@
   </div>
 </div>
 
-<div class="notification" id="notification"></div>
+<div class="notification" id="notification" role="status" aria-live="polite"></div>
 
 <script src="game.js"></script>
 </body>
