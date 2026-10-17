@@ -7,6 +7,7 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #000;
   color: #fff;
   overflow-x: hidden;
@@ -45,7 +46,18 @@ body::before {
 }
 
 @keyframes rise {
-  to { transform: translateY(-110vh); opacity: 0; }
+  to { transform: translateY(-120vh); opacity: 0; }
+}
+
+/* ============================================================
+   === ДОСТУПНОСТЬ: ФОКУС ===
+   ============================================================ */
+
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
 }
 
 /* ============================================================
@@ -296,6 +308,7 @@ body::before {
   position: relative;
   z-index: 10;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -386,8 +399,8 @@ h1 {
   font-size: 12px;
 }
 @keyframes buffPulse {
-  from { box-shadow: 0 0 10px rgba(251,191,36,0.3); }
-  to { box-shadow: 0 0 25px rgba(251,191,36,0.7); }
+  from { box-shadow: 0 0 10px rgba(251,191,36,0.2); }
+  to   { box-shadow: 0 0 18px rgba(251,191,36,0.5); }
 }
 
 /* ============================================================
@@ -556,6 +569,7 @@ h1 {
   background-size: 300% 100%;
   animation: rainbow 3s linear infinite;
   text-shadow: 0 0 8px #fff;
+  will-change: background-position;
 }
 @keyframes rainbow {
   0% { background-position: 0% 50%; }
@@ -642,7 +656,6 @@ h1 {
   justify-content: center;
   flex: 1;
 }
-.big-btn.roll { flex: 1; }
 .big-btn .bb-icon { font-size: 22px; }
 .big-btn .bb-text { font-size: 16px; }
 .big-btn .bb-badge {
@@ -873,6 +886,20 @@ h1 {
   box-shadow: 0 0 15px rgba(74,222,128,0.8);
 }
 
+@media (max-height: 700px) {
+  .corner-buttons { bottom: 12px; right: 12px; gap: 8px; }
+  .corner-btn { min-width: 55px; height: 55px; font-size: 24px; }
+  .corner-btn:not(.wide) { width: 55px; }
+  .corner-btn .cb-icon { font-size: 22px; }
+  .corner-btn .cb-text { font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .corner-btn.wide .cb-text { display: none; }
+  .corner-btn.wide { padding: 0; justify-content: center; }
+  .corner-btn.wide { width: 65px; }
+}
+
 /* ============================================================
    === МОДАЛЬНЫЕ ОКНА ===
    ============================================================ */
@@ -954,6 +981,13 @@ h1 {
 .modal-body::-webkit-scrollbar-thumb {
   background: rgba(100, 200, 255, 0.3);
   border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+  .modal { max-height: 92vh; }
+  .modal-header { padding: 14px 18px; }
+  .modal-body { padding: 14px 18px; }
+  .modal-header h2 { font-size: 17px; }
 }
 
 /* ============================================================
@@ -1215,6 +1249,13 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 1px;
   text-align: left;
+}
+
+@media (max-width: 380px) {
+  .aquarium-slots { gap: 4px; }
+  .aq-slot { font-size: 20px; padding: 2px; }
+  .aq-slot .aq-name { font-size: 8px; }
+  .aq-slot .aq-bonus { font-size: 8px; }
 }
 
 /* ============================================================
@@ -1541,7 +1582,7 @@ h1 {
   background: rgba(244, 63, 94, 0.1);
   border: 2px dashed rgba(244, 63, 94, 0.4);
   border-radius: 12px;
-  margin-bottom: 12px;
+  margin: 12px 0 0;
   text-shadow: 0 0 15px rgba(244, 63, 94, 0.6);
   user-select: all;
 }
@@ -1612,6 +1653,10 @@ h1 {
 }
 .reset-final-btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 55px rgba(244, 63, 94, 1); }
 
+@media (max-width: 400px) {
+  .rs-code { font-size: 24px; letter-spacing: 4px; }
+}
+
 /* ============================================================
    === УТИЛИТЫ ===
    ============================================================ */
@@ -1635,7 +1680,7 @@ h1 {
   font-weight: 600;
   font-size: 14px;
   box-shadow: 0 0 30px rgba(0,150,255,0.4);
-  z-index: 2000;
+  z-index: 5000;
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
   max-width: 90vw;
