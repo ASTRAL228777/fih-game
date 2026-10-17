@@ -9,17 +9,18 @@ let manualRollsCount = 0;
 // === ЛОГ ОБНОВЛЕНИЙ ===
 // ============================================================
 
-const CURRENT_VERSION = 'v1.5';
+const CURRENT_VERSION = 'v1.6';
 const UPDATE_LOG_KEY = 'fih-game-last-seen-version';
 
 const UPDATE_LOG_CONTENT = `
   <ul>
-    <li>🎲 <strong>Угадай число</strong> — теперь 1-5 (было 1-10)</li>
-    <li>⚡ <strong>Реакция</strong> — исправлен баг: экран не заканчивался</li>
-    <li>🚫 <strong>Реакция</strong> — теперь запрещено кликать до зелёного</li>
-    <li>⏱ <strong>Реакция</strong> — всего 1.5 сек на реакцию</li>
-    <li>💰 <strong>Мини-игры</strong> дают +10% к цене продажи (30 сек)</li>
-    <li>🐀 <strong>Крыса</strong> даёт +2% к цене продажи (5 мин)</li>
+    <li>⚙️ <strong>Настраиваемый авторолл</strong> — возвращён в магазин! Фильтры редкостей, видов и мин. цены</li>
+    <li>🐛 <strong>Исправлен баг</strong> — двойной улов теперь корректно учитывается в статистике</li>
+    <li>🐛 <strong>Исправлен баг</strong> — игра больше не «зависает» при ошибке ролла</li>
+    <li>🐛 <strong>Исправлен баг</strong> — авторолл не сбрасывает ручное решение</li>
+    <li>🎰 <strong>Казино</strong> — выбранная рыба сохраняется после игры</li>
+    <li>🐠 <strong>Аквариум</strong> — защита от некорректных уровней</li>
+    <li>💾 <strong>Сохранения</strong> — реже пишутся в localStorage (меньше нагрузки)</li>
   </ul>
   <div class="ul-hint">Следующие обновления — скоро!</div>
 `;
@@ -30,11 +31,12 @@ function showUpdateLog() {
 
   const logEl = document.getElementById('updateLog');
   const bodyEl = document.getElementById('updateLogBody');
+  if (!logEl || !bodyEl) return;
+
   bodyEl.innerHTML = `<div class="ul-version">${CURRENT_VERSION}</div>${UPDATE_LOG_CONTENT}`;
   logEl.classList.remove('hidden');
   logEl.classList.remove('closing');
 
-  // Автоскрытие через 15 секунд
   clearTimeout(logEl._timer);
   logEl._timer = setTimeout(() => {
     hideUpdateLog();
@@ -43,6 +45,7 @@ function showUpdateLog() {
 
 function hideUpdateLog() {
   const logEl = document.getElementById('updateLog');
+  if (!logEl) return;
   logEl.classList.add('closing');
   setTimeout(() => {
     logEl.classList.add('hidden');
@@ -51,7 +54,8 @@ function hideUpdateLog() {
   localStorage.setItem(UPDATE_LOG_KEY, CURRENT_VERSION);
 }
 
-document.getElementById('updateLogClose').addEventListener('click', hideUpdateLog);
+const updateLogCloseBtn = document.getElementById('updateLogClose');
+if (updateLogCloseBtn) updateLogCloseBtn.addEventListener('click', hideUpdateLog);
 
 // ============================================================
 // === МУЛЬТИВКЛАДОЧНАЯ ЗАЩИТА ===
@@ -126,6 +130,13 @@ function saveGame() {
   }
 }
 
+// Дебаунс сохранений — не чаще раза в секунду
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveGame, 1000);
+}
+
 function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -168,7 +179,8 @@ function loadGame() {
   }
 }
 
-setInterval(saveGame, 5000);
+// Периодическое сохранение — реже, чем было (было 5000)
+setInterval(saveGame, 15000);
 window.addEventListener('beforeunload', saveGame);
 
 // ============================================================
@@ -240,9 +252,9 @@ const AQUARIUM_LEVELS = [
 ];
 
 function getAqSlots() {
-  const lvl = gameState.upgrades.aqLevel || 0;
-  const entry = AQUARIUM_LEVELS.find(x => x.level === lvl) || AQUARIUM_LEVELS[0];
-  return entry.slots;
+  // Клампим на случай старых сейвов с уровнем > 4
+  const lvl = Math.max(0, Math.min(gameState.upgrades.aqLevel || 0, AQUARIUM_LEVELS.length - 1));
+  return AQUARIUM_LEVELS[lvl].slots;
 }
 
 const MINIGAME_TOKEN_MAX = 15;
@@ -328,6 +340,15 @@ const upgradesList = [
     getLevel: () => gameState.upgrades.autoroll ? 1 : 0,
     onBuy: () => { gameState.upgrades.autoroll = true; },
     lockedHint: 'Требуется удача 2/10'
+  },
+  {
+    id: 'customAutoroll', icon: '⚙️', name: 'Настраиваемый авторолл',
+    desc: 'Открывает фильтры авторолла: редкости, виды рыб, мин. цена продажи',
+    maxLevel: 1, baseCost: 8000, costMult: 1,
+    isUnlocked: () => gameState.upgrades.autoroll,
+    getLevel: () => gameState.upgrades.customAutoroll ? 1 : 0,
+    onBuy: () => { gameState.upgrades.customAutoroll = true; },
+    lockedHint: 'Требуется Автопрокат'
   },
   {
     id: 'fastRod', icon: '🎣', name: 'Быстрая удочка',
@@ -494,7 +515,7 @@ function applyMinigameBuff() {
   gameState.buff.sellBoost = MINIGAME_BUFF_SELL;
   gameState.buff.expiresAt = Date.now() + MINIGAME_BUFF_DURATION;
   updateBuffBar();
-  saveGame();
+  scheduleSave();
 }
 
 function updateBuffBar() {
@@ -560,6 +581,17 @@ function getAquariumBonus() {
 }
 
 // ============================================================
+// === УЧЁТ УЛОВА (единая точка) ===
+// ============================================================
+
+function registerCatch(fish, value) {
+  gameState.totalCaught++;
+  totalCaughtGlobal++;
+  if (value > gameState.bestValue) gameState.bestValue = value;
+  if (!gameState.caughtSpecies[fish.id]) gameState.caughtSpecies[fish.id] = true;
+}
+
+// ============================================================
 // === РОЛЛ ===
 // ============================================================
 
@@ -568,109 +600,121 @@ let pendingCatch = null;
 
 async function castRod(silent = false) {
   if (isRolling) return;
+  // Защита: не начинаем новый ролл, если висит решение (ручное или от предыдущего тика)
+  if (pendingCatch) return;
+
   isRolling = true;
-
   decisionRow.classList.remove('active');
-  pendingCatch = null;
 
-  const fastRodBonus = (gameState.upgrades.fastRod || 0) * 0.10;
-  const buffSpeed = getBuffSpeedBonus() / 100;
-  const rodSpeed = Math.max(0.25, 1 - fastRodBonus - buffSpeed);
+  let spinInterval = null;
 
-  if (!silent) rollBtn.disabled = true;
+  try {
+    const fastRodBonus = (gameState.upgrades.fastRod || 0) * 0.10;
+    const buffSpeed = getBuffSpeedBonus() / 100;
+    const rodSpeed = Math.max(0.25, 1 - fastRodBonus - buffSpeed);
 
-  catchDisplay.classList.remove('glow-epic','glow-legendary','glow-exotic','glow-mythic','glow-ultimate');
-  catchDisplay.classList.add('rolling');
-  fishEmoji.classList.remove('pop');
-  fishEmoji.classList.add('spinning');
-  fishName.textContent = 'Клюёт...';
-  fishName.style.color = '#fff';
-  fishRarity.textContent = '';
-  fishRarity.className = 'fish-rarity';
-  fishValue.textContent = '';
+    if (!silent) rollBtn.disabled = true;
 
-  const spinEmojis = ['🐟', '🐠', '🐡', '🦈', '🐙', '🦑', '🐳', '🦀', '🌈', '🐰', '🦔'];
-  const spinInterval = setInterval(() => {
-    fishEmoji.textContent = spinEmojis[Math.floor(Math.random() * spinEmojis.length)];
-  }, 70);
+    catchDisplay.classList.remove('glow-epic','glow-legendary','glow-exotic','glow-mythic','glow-ultimate');
+    catchDisplay.classList.add('rolling');
+    fishEmoji.classList.remove('pop');
+    fishEmoji.classList.add('spinning');
+    fishName.textContent = 'Клюёт...';
+    fishName.style.color = '#fff';
+    fishRarity.textContent = '';
+    fishRarity.className = 'fish-rarity';
+    fishValue.textContent = '';
 
-  const baseDelay = silent ? 4000 : 2200;
-  const delay = Math.floor(baseDelay * rodSpeed);
-  await new Promise(r => setTimeout(r, delay));
+    const spinEmojis = ['🐟', '🐠', '🐡', '🦈', '🐙', '🦑', '🐳', '🦀', '🌈', '🐰', '🦔'];
+    spinInterval = setInterval(() => {
+      fishEmoji.textContent = spinEmojis[Math.floor(Math.random() * spinEmojis.length)];
+    }, 70);
 
-  clearInterval(spinInterval);
-  catchDisplay.classList.remove('rolling');
-  fishEmoji.classList.remove('spinning');
+    const baseDelay = silent ? 4000 : 2200;
+    const delay = Math.floor(baseDelay * rodSpeed);
+    await new Promise(r => setTimeout(r, delay));
 
-  const fish = rollFish();
-  const value = applyAquariumBoost(calcFishValue(fish));
+    clearInterval(spinInterval);
+    spinInterval = null;
+    catchDisplay.classList.remove('rolling');
+    fishEmoji.classList.remove('spinning');
 
-  fishEmoji.textContent = fish.emoji;
-  fishEmoji.classList.add('pop');
-  fishName.textContent = fish.name;
-  fishName.style.color = getRarityColor(fish.rarity);
-  fishRarity.textContent = rarityNames[fish.rarity];
-  fishRarity.className = 'fish-rarity rarity-' + fish.rarity;
-  fishValue.textContent = `💰 ${formatNumber(value)} монет`;
+    const fish = rollFish();
+    const value = applyAquariumBoost(calcFishValue(fish));
 
-  if (fish.rarity === 'epic')      catchDisplay.classList.add('glow-epic');
-  if (fish.rarity === 'legendary') catchDisplay.classList.add('glow-legendary');
-  if (fish.rarity === 'exotic')    catchDisplay.classList.add('glow-exotic');
-  if (fish.rarity === 'mythic')    catchDisplay.classList.add('glow-mythic');
-  if (fish.rarity === 'ultimate')  catchDisplay.classList.add('glow-ultimate');
+    fishEmoji.textContent = fish.emoji;
+    fishEmoji.classList.add('pop');
+    fishName.textContent = fish.name;
+    fishName.style.color = getRarityColor(fish.rarity);
+    fishRarity.textContent = rarityNames[fish.rarity];
+    fishRarity.className = 'fish-rarity rarity-' + fish.rarity;
+    fishValue.textContent = `💰 ${formatNumber(value)} монет`;
 
-  gameState.totalCaught++;
-  totalCaughtGlobal++;
-  if (value > gameState.bestValue) gameState.bestValue = value;
-  if (!gameState.caughtSpecies[fish.id]) gameState.caughtSpecies[fish.id] = true;
+    if (fish.rarity === 'epic')      catchDisplay.classList.add('glow-epic');
+    if (fish.rarity === 'legendary') catchDisplay.classList.add('glow-legendary');
+    if (fish.rarity === 'exotic')    catchDisplay.classList.add('glow-exotic');
+    if (fish.rarity === 'mythic')    catchDisplay.classList.add('glow-mythic');
+    if (fish.rarity === 'ultimate')  catchDisplay.classList.add('glow-ultimate');
 
-  if (!silent) {
-    manualRollsCount++;
-    if (gameState.upgrades.minigames && manualRollsCount % 15 === 0) {
-      if (gameState.minigameTokens < MINIGAME_TOKEN_MAX) {
-        gameState.minigameTokens++;
-        notify('🎯 Получен жетон мини-игры!', 'gold');
-      } else {
-        notify('🎯 Лимит жетонов (15)', 'error');
-      }
-    }
+    // Единый учёт: регистрируем первую рыбу всегда
+    registerCatch(fish, value);
 
     const extraChance = gameState.rod2Enabled ? (gameState.upgrades.extraRod || 0) * 0.08 : 0;
+    let bonusFish = null, bonusValue = 0;
     if (extraChance > 0 && Math.random() < extraChance) {
-      const f2 = rollFish();
-      const v2 = applyAquariumBoost(calcFishValue(f2));
-      gameState.totalCaught++;
-      if (v2 > gameState.bestValue) gameState.bestValue = v2;
-      if (!gameState.caughtSpecies[f2.id]) gameState.caughtSpecies[f2.id] = true;
-      notify(`🎏 Двойной улов: +${f2.name}!`, 'gold');
-      pendingCatch = { fish, value, bonusFish: f2, bonusValue: v2 };
-    } else {
-      pendingCatch = { fish, value };
+      bonusFish = rollFish();
+      bonusValue = applyAquariumBoost(calcFishValue(bonusFish));
+      // Единый учёт: регистрируем бонусную рыбу тоже
+      registerCatch(bonusFish, bonusValue);
     }
 
-    decPrice.textContent = `+💰${formatNumber(value)}`;
-    decisionRow.classList.add('active');
-    rollBtn.disabled = true;
-    isRolling = false;
+    if (!silent) {
+      manualRollsCount++;
+      if (gameState.upgrades.minigames && manualRollsCount % 15 === 0) {
+        if (gameState.minigameTokens < MINIGAME_TOKEN_MAX) {
+          gameState.minigameTokens++;
+          notify('🎯 Получен жетон мини-игры!', 'gold');
+        } else {
+          notify('🎯 Лимит жетонов (15)', 'error');
+        }
+      }
+
+      if (bonusFish) {
+        notify(`🎏 Двойной улов: +${bonusFish.name}!`, 'gold');
+        pendingCatch = { fish, value, bonusFish, bonusValue };
+      } else {
+        pendingCatch = { fish, value };
+      }
+
+      decPrice.textContent = `+💰${formatNumber(value)}`;
+      decisionRow.classList.add('active');
+      rollBtn.disabled = true;
+      updateAllUI();
+      scheduleSave();
+      return;
+    }
+
+    // silent (авторолл)
+    handleFishCatch(fish, value);
+    if (bonusFish) {
+      handleFishCatch(bonusFish, bonusValue);
+    }
+
     updateAllUI();
-    return;
+    scheduleSave();
+  } catch (e) {
+    console.error('castRod error', e);
+    notify('Ошибка ролла. Попробуйте ещё раз.', 'error');
+    catchDisplay.classList.remove('rolling');
+    fishEmoji.classList.remove('spinning');
+    if (!silent) rollBtn.disabled = false;
+  } finally {
+    if (spinInterval) clearInterval(spinInterval);
+    // Снимаем isRolling, только если нет висящего решения
+    // (при ручном ролле с решением — isRolling должен сброситься, чтобы кнопки работали,
+    // но новый ролл не начнётся из-за guard по pendingCatch)
+    isRolling = false;
   }
-
-  handleFishCatch(fish, value);
-
-  const extraChance = gameState.rod2Enabled ? (gameState.upgrades.extraRod || 0) * 0.08 : 0;
-  if (extraChance > 0 && Math.random() < extraChance) {
-    const f2 = rollFish();
-    const v2 = applyAquariumBoost(calcFishValue(f2));
-    handleFishCatch(f2, v2);
-    gameState.totalCaught++;
-    if (v2 > gameState.bestValue) gameState.bestValue = v2;
-    if (!gameState.caughtSpecies[f2.id]) gameState.caughtSpecies[f2.id] = true;
-  }
-
-  updateAllUI();
-  saveGame();
-  isRolling = false;
 }
 
 function decideKeep() {
@@ -702,7 +746,7 @@ function finishDecision() {
   decisionRow.classList.remove('active');
   rollBtn.disabled = false;
   updateAllUI();
-  saveGame();
+  scheduleSave();
 }
 
 // ============================================================
@@ -749,7 +793,7 @@ function sellFishQty(fishId, qty) {
   gameState.coins += totalValue;
   notify(`Продано ${n}x ${fish.name} за 💰${formatNumber(totalValue)}`, 'gold');
   updateAllUI();
-  saveGame();
+  scheduleSave();
 }
 
 function sellAll() {
@@ -765,7 +809,7 @@ function sellAll() {
   gameState.coins += total;
   notify(`Продано ${count} рыб за 💰${formatNumber(total)}`, 'gold');
   updateAllUI();
-  saveGame();
+  scheduleSave();
 }
 
 // ============================================================
@@ -788,7 +832,7 @@ function addToAquarium(fishId) {
   gameState.aquarium.push({ fishId, value });
   notify(`${fish.emoji} ${fish.name} добавлен в аквариум!`);
   updateAllUI();
-  saveGame();
+  scheduleSave();
 }
 
 function removeFromAquarium(idx) {
@@ -799,7 +843,7 @@ function removeFromAquarium(idx) {
   gameState.aquarium.splice(idx, 1);
   notify(`${fish.name} возвращён в инвентарь`);
   updateAllUI();
-  saveGame();
+  scheduleSave();
 }
 
 // ============================================================
@@ -890,9 +934,11 @@ function openRatFeedModal() {
 }
 
 function feedRat(fishId) {
+  if (!gameState.upgrades.rat) return;
   const have = gameState.inventory[fishId] || 0;
   if (have < 1) return;
   const fish = fishList.find(f => f.id === fishId);
+  if (!fish) return;
 
   gameState.inventory[fishId]--;
   if (gameState.inventory[fishId] <= 0) delete gameState.inventory[fishId];
@@ -902,7 +948,7 @@ function feedRat(fishId) {
   notify(`🐀 Крыса довольна! +1% удача, +2% цена (5 мин)`, 'green');
   updateRatUI();
   updateAllUI();
-  saveGame();
+  scheduleSave();
 
   $('ratFeedModal').classList.remove('active');
 }
@@ -1035,7 +1081,7 @@ function renderShop() {
           u.onBuy();
           notify(`${u.icon} Куплено: ${u.name}!`);
           updateAllUI();
-          saveGame();
+          scheduleSave();
         }
       });
     }
@@ -1066,7 +1112,7 @@ function renderBook() {
     const isCaught = !!gameState.caughtSpecies[fish.id];
     const rawPercent = fish.chance / totalChance * 100;
     const chancePercent = formatChancePercent(rawPercent);
-    const oneIn = Math.round(1 / (fish.chance / totalChance));
+    const oneIn = fish.chance > 0 ? Math.round(totalChance / fish.chance) : '∞';
 
     const card = document.createElement('div');
     card.className = 'fish-card';
@@ -1205,9 +1251,9 @@ function renderInventoryModal() {
       </div>
       <div class="fc-actions">
         <div class="qty-control">
-          <button class="qty-minus" data-fish="${fishId}">−</button>
-          <span class="qty-value">${qty}</span>
-          <button class="qty-plus" data-fish="${fishId}">+</button>
+          <button class="qty-minus" data-fish="${fishId}" ${qty <= 1 ? 'disabled' : ''}>−</button>
+          <span class="qty-value" data-fish="${fishId}">${qty}</span>
+          <button class="qty-plus" data-fish="${fishId}" ${qty >= count ? 'disabled' : ''}>+</button>
         </div>
         <button class="btn-sell" data-fish="${fishId}">Продать</button>
       </div>
@@ -1221,12 +1267,13 @@ function renderInventoryModal() {
   sellAllBtn.addEventListener('click', sellAll);
   container.appendChild(sellAllBtn);
 
+  // Точечное обновление qty без полной перерисовки
   container.querySelectorAll('.qty-minus').forEach(btn => {
     btn.addEventListener('click', () => {
       const fishId = btn.dataset.fish;
       const max = gameState.inventory[fishId] || 0;
       qtyState[fishId] = Math.max(1, (qtyState[fishId] || max) - 1);
-      renderInventoryModal();
+      updateQtyControls(fishId);
     });
   });
   container.querySelectorAll('.qty-plus').forEach(btn => {
@@ -1234,7 +1281,7 @@ function renderInventoryModal() {
       const fishId = btn.dataset.fish;
       const max = gameState.inventory[fishId] || 0;
       qtyState[fishId] = Math.min(max, (qtyState[fishId] || max) + 1);
-      renderInventoryModal();
+      updateQtyControls(fishId);
     });
   });
   container.querySelectorAll('.btn-sell').forEach(btn => {
@@ -1248,6 +1295,19 @@ function renderInventoryModal() {
   });
 }
 
+function updateQtyControls(fishId) {
+  const container = $('inventoryList');
+  if (!container) return;
+  const valueEl = container.querySelector(`.qty-value[data-fish="${fishId}"]`);
+  if (valueEl) valueEl.textContent = qtyState[fishId] || 1;
+  const minusBtn = container.querySelector(`.qty-minus[data-fish="${fishId}"]`);
+  const plusBtn  = container.querySelector(`.qty-plus[data-fish="${fishId}"]`);
+  const max = gameState.inventory[fishId] || 0;
+  const qty = qtyState[fishId] || 1;
+  if (minusBtn) minusBtn.disabled = qty <= 1;
+  if (plusBtn)  plusBtn.disabled  = qty >= max;
+}
+
 // ============================================================
 // === АВТОРОЛЛ ===
 // ============================================================
@@ -1258,6 +1318,7 @@ function startAutoroll() {
   autorollInterval = setInterval(() => {
     if (!gameState.autorollActive) return;
     if (pendingCatch) return;
+    if (isRolling) return;
     castRod(true);
   }, 100);
 }
@@ -1282,7 +1343,7 @@ function renderAutorollSettings() {
       if (idx >= 0) arr.splice(idx, 1);
       else arr.push(r);
       renderAutorollSettings();
-      saveGame();
+      scheduleSave();
     });
     rf.appendChild(chip);
   });
@@ -1304,7 +1365,7 @@ function renderAutorollSettings() {
         if (idx >= 0) arr.splice(idx, 1);
         else arr.push(fish.id);
         renderAutorollSettings();
-        saveGame();
+        scheduleSave();
       });
       sf.appendChild(chip);
     });
@@ -1402,7 +1463,16 @@ function renderMinigames() {
       gameState.minigameTokens -= 1;
       gameState.lastMinigameTime = Date.now();
       $('minigameModal').classList.remove('active');
-      mg.run();
+      try {
+        mg.run();
+      } catch (e) {
+        console.error('Minigame error', e);
+        // Возвращаем токен при ошибке
+        gameState.minigameTokens += 1;
+        notify('Ошибка мини-игры. Жетон возвращён.', 'error');
+        updateAllUI();
+        scheduleSave();
+      }
     });
     container.appendChild(card);
   });
@@ -1460,12 +1530,12 @@ function runClickGame() {
       notify('👆 Не успел!', 'error');
     }
     updateAllUI();
-    saveGame();
+    scheduleSave();
   }
 }
 
 function runGuessGame() {
-  const target = Math.floor(Math.random() * 5) + 1; // 1-5
+  const target = Math.floor(Math.random() * 5) + 1;
 
   const overlay = document.createElement('div');
   overlay.style.cssText = `position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 5000; flex-direction: column; gap: 20px; user-select: none; text-align: center; padding: 20px;`;
@@ -1494,7 +1564,7 @@ function runGuessGame() {
           applyMinigameBuff();
           notify(`🎲 Угадал! +${MINIGAME_REWARD} монет и буст`, 'gold');
           updateAllUI();
-          saveGame();
+          scheduleSave();
         }, 700);
       } else {
         btn.style.background = 'rgba(244,63,94,0.4)';
@@ -1503,7 +1573,7 @@ function runGuessGame() {
           overlay.remove();
           notify(`🎲 Мимо! Было число ${target}`, 'error');
           updateAllUI();
-          saveGame();
+          scheduleSave();
         }, 700);
       }
     });
@@ -1531,8 +1601,9 @@ function runReactionGame() {
   const delay = 2000 + Math.random() * 3000;
 
   let reactionTimer = null;
+  let delayTimer = null;
 
-  setTimeout(() => {
+  delayTimer = setTimeout(() => {
     if (finished) return;
     ready = true;
     overlay.style.background = '#16a34a';
@@ -1548,7 +1619,7 @@ function runReactionGame() {
       overlay.remove();
       notify('⚡ Слишком медленно!', 'error');
       updateAllUI();
-      saveGame();
+      scheduleSave();
     }, 1500);
   }, delay);
 
@@ -1557,10 +1628,11 @@ function runReactionGame() {
 
     if (!ready) {
       finished = true;
+      if (delayTimer) clearTimeout(delayTimer);
       overlay.remove();
       notify('⚡ Рано! Жди зелёного', 'error');
       updateAllUI();
-      saveGame();
+      scheduleSave();
       return;
     }
 
@@ -1571,7 +1643,7 @@ function runReactionGame() {
     applyMinigameBuff();
     notify(`⚡ Отлично! +${MINIGAME_REWARD} монет и буст`, 'gold');
     updateAllUI();
-    saveGame();
+    scheduleSave();
   });
 }
 
@@ -1598,10 +1670,11 @@ function renderCasinoFishList() {
     return;
   }
 
+  // Та же сортировка, что и в инвентаре (common сверху)
   const sorted = keys.sort((a, b) => {
     const fa = fishList.find(f => f.id === a);
     const fb = fishList.find(f => f.id === b);
-    return rarityOrder.indexOf(fb.rarity) - rarityOrder.indexOf(fa.rarity);
+    return rarityOrder.indexOf(fa.rarity) - rarityOrder.indexOf(fb.rarity);
   });
 
   sorted.forEach(fishId => {
@@ -1690,8 +1763,15 @@ function playCasino(fishId, mult) {
   }
 
   updateAllUI();
-  saveGame();
-  renderCasino();
+  scheduleSave();
+
+  // Сохраняем выбор, если рыба ещё есть
+  if ((gameState.inventory[fishId] || 0) > 0) {
+    casinoSelectedFishId = fishId;
+    renderCasinoMultipliers();
+  } else {
+    renderCasino();
+  }
 }
 
 // ============================================================
@@ -1711,8 +1791,8 @@ function generateResetCode() {
 
 function openResetModal() {
   resetCode = generateResetCode();
+  // Показываем код ТОЛЬКО в предупреждении (до полей)
   $('resetCode1').textContent = resetCode;
-  $('resetCode2').textContent = resetCode;
   const input1 = $('resetInput1');
   const input2 = $('resetInput2');
   input1.value = '';
@@ -1810,7 +1890,7 @@ rod2Toggle.addEventListener('click', () => {
   gameState.rod2Enabled = !gameState.rod2Enabled;
   notify(gameState.rod2Enabled ? '🎏 Вторая удочка ВКЛ' : '🎏 Вторая удочка ВЫКЛ');
   updateAllUI();
-  saveGame();
+  scheduleSave();
 });
 
 autorollToggle.addEventListener('click', () => {
@@ -1873,14 +1953,14 @@ $('buyTokenBtn').addEventListener('click', () => {
   gameState.minigameTokens += 1;
   notify('🎯 Куплен жетон!', 'gold');
   updateAllUI();
-  saveGame();
+  scheduleSave();
   renderMinigames();
 });
 
 $('minPriceSlider').addEventListener('input', e => {
   gameState.autorollFilters.minPrice = parseInt(e.target.value) || 0;
   $('minPriceValue').textContent = formatNumber(gameState.autorollFilters.minPrice);
-  saveGame();
+  scheduleSave();
 });
 
 $('casinoBackBtn').addEventListener('click', () => {
@@ -1894,12 +1974,12 @@ $('ratFeedBtn').addEventListener('click', openRatFeedModal);
 $('ratMiniBtn').addEventListener('click', () => {
   gameState.rat.visible = true;
   updateRatUI();
-  saveGame();
+  scheduleSave();
 });
 $('ratToggleBtn').addEventListener('click', () => {
   gameState.rat.visible = false;
   updateRatUI();
-  saveGame();
+  scheduleSave();
 });
 
 $('resetBtn').addEventListener('click', openResetModal);
@@ -1910,6 +1990,13 @@ $('resetInput1').addEventListener('keydown', e => {
 });
 $('resetInput2').addEventListener('keydown', e => {
   if (e.key === 'Enter') confirmResetStep2();
+});
+
+// Закрытие модалок по Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  }
 });
 
 document.querySelectorAll('[data-close]').forEach(btn => {
@@ -1953,6 +2040,5 @@ if (ok) {
   loadGame();
   updateAllUI();
   setTimeout(updateAllUI, 100);
-  // Показ лога обновлений
   setTimeout(showUpdateLog, 400);
 }
