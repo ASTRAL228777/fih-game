@@ -343,6 +343,78 @@ h1 {
 }
 
 /* ============================================================
+   === ПЛАШКИ БАНКА И КРЕДИТА ===
+   ============================================================ */
+
+.bank-main-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 15px;
+  margin-bottom: 10px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 12px;
+  font-size: 13px;
+  color: rgba(150, 220, 255, 0.85);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.bank-main-bar:hover {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.6);
+}
+.bank-main-bar.hidden { display: none; }
+.bank-main-bar .bmb-icon { font-size: 18px; }
+.bank-main-bar strong { color: #4ade80; font-size: 15px; text-shadow: 0 0 10px rgba(74,222,128,0.6); }
+.bank-main-bar .bmb-rate {
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  background: rgba(251,191,36,0.15);
+  border-radius: 10px;
+}
+
+.credit-main-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 15px;
+  margin-bottom: 10px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  border-radius: 12px;
+  font-size: 13px;
+  color: rgba(255, 200, 200, 0.9);
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: creditPulse 2s ease-in-out infinite;
+}
+.credit-main-bar:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.8);
+}
+.credit-main-bar.hidden { display: none; }
+.credit-main-bar .cmb-icon { font-size: 18px; }
+.credit-main-bar strong { color: #f43f5e; font-size: 15px; }
+.credit-main-bar .cmb-timer {
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 2px 8px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+}
+@keyframes creditPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(244,63,94,0.3); }
+  50% { box-shadow: 0 0 25px rgba(244,63,94,0.6); }
+}
+
+/* ============================================================
    === ПЛАШКИ БУСТОВ ===
    ============================================================ */
 
@@ -1188,6 +1260,62 @@ h1 {
 .bs-value.gold { color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,0.6); }
 .book-note { font-size: 11px; color: rgba(150,220,255,0.5); text-align: center; margin-bottom: 15px; font-style: italic; }
 
+/* Сводка по редкостям */
+.rarity-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(100, 200, 255, 0.15);
+  border-radius: 14px;
+}
+.rs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.2s;
+}
+.rs-row:hover { background: rgba(100, 200, 255, 0.08); }
+.rs-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+.rs-label {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.rs-chance {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  min-width: 70px;
+  text-align: right;
+}
+.rs-bar-wrap {
+  flex: 0 0 100px;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rs-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
 /* ============================================================
    === АКВАРИУМ ===
    ============================================================ */
@@ -1238,7 +1366,7 @@ h1 {
   background: rgba(0,0,0,0.7);
 }
 .aq-slot .aq-name { font-size: 9px; color: rgba(255,255,255,0.7); text-align: center; margin-top: 2px; line-height: 1.1; }
-.aq-slot .aq-bonus { font-size: 9px; color: #fbbf24; font-weight: 700; }
+.aq-slot .aq-bonus { font-size: 8px; color: #fbbf24; font-weight: 700; text-align: center; line-height: 1.2; }
 .boost-info { text-align: center; font-size: 13px; color: rgba(150,220,255,0.7); margin-bottom: 10px; }
 .boost-info strong { color: #4ade80; font-size: 15px; }
 .section-title {
@@ -1255,7 +1383,7 @@ h1 {
   .aquarium-slots { gap: 4px; }
   .aq-slot { font-size: 20px; padding: 2px; }
   .aq-slot .aq-name { font-size: 8px; }
-  .aq-slot .aq-bonus { font-size: 8px; }
+  .aq-slot .aq-bonus { font-size: 7px; }
 }
 
 /* ============================================================
@@ -1435,10 +1563,7 @@ h1 {
   transition: all 0.2s;
   margin-bottom: 12px;
 }
-.casino-back-btn:hover {
-  background: rgba(100,200,255,0.25);
-  color: #fff;
-}
+.casino-back-btn:hover { background: rgba(100,200,255,0.25); color: #fff; }
 
 .casino-selected {
   display: flex;
@@ -1493,28 +1618,243 @@ h1 {
   font-weight: 700;
   margin-top: 4px;
 }
-.casino-mult-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.casino-mult-btn .cm-penalty {
+  display: block;
+  font-size: 10px;
+  color: #f43f5e;
+  font-weight: 600;
+  margin-top: 3px;
+}
+.casino-mult-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.casino-fish-pick { cursor: pointer; transition: all 0.2s; }
+.casino-fish-pick:hover { border-color: rgba(239,68,68,0.6) !important; background: rgba(239,68,68,0.08) !important; }
+
+.rat-feed-pick { cursor: pointer; transition: all 0.2s; }
+.rat-feed-pick:hover { border-color: rgba(251,191,36,0.6) !important; background: rgba(251,191,36,0.08) !important; }
+
+/* ============================================================
+   === БАНК ===
+   ============================================================ */
+
+.bank-modal {
+  max-width: 560px;
 }
 
-.casino-fish-pick {
+.bank-info-block {
+  text-align: center;
+  padding: 15px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 14px;
+  margin-bottom: 15px;
+}
+.bank-level {
+  font-size: 13px;
+  color: rgba(150,220,255,0.8);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.bank-balance-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.bbd-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+.bbd-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #4ade80;
+  text-shadow: 0 0 15px rgba(74,222,128,0.6);
+}
+.bbd-limit { font-size: 13px; color: rgba(255,255,255,0.4); }
+.bank-coins-display { font-size: 12px; color: rgba(255,255,255,0.6); }
+.bank-coins-display span { color: #fbbf24; font-weight: 700; }
+
+.bank-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+.bank-action-row {
+  display: flex;
+  gap: 8px;
+}
+.bank-action-row input {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(100,200,255,0.3);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+.bank-action-row input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 15px rgba(56,189,248,0.3);
+}
+.bank-action-row input::placeholder { color: rgba(255,255,255,0.3); }
+
+.bank-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 }
-.casino-fish-pick:hover {
-  border-color: rgba(239,68,68,0.6) !important;
-  background: rgba(239,68,68,0.08) !important;
+.bank-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bank-btn.deposit {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(16,185,129,0.4);
+}
+.bank-btn.deposit:hover:not(:disabled) { box-shadow: 0 0 25px rgba(16,185,129,0.8); }
+.bank-btn.deposit-all {
+  background: rgba(16,185,129,0.2);
+  color: #4ade80;
+  border: 1px solid rgba(16,185,129,0.5);
+}
+.bank-btn.deposit-all:hover:not(:disabled) { background: rgba(16,185,129,0.35); }
+.bank-btn.withdraw {
+  background: linear-gradient(135deg, #f59e0b, #eab308);
+  color: #000;
+  box-shadow: 0 0 15px rgba(251,191,36,0.4);
+}
+.bank-btn.withdraw:hover:not(:disabled) { box-shadow: 0 0 25px rgba(251,191,36,0.8); }
+.bank-btn.withdraw-all {
+  background: rgba(251,191,36,0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.5);
+}
+.bank-btn.withdraw-all:hover:not(:disabled) { background: rgba(251,191,36,0.35); }
+
+.credit-info {
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 14px;
+}
+.credit-info.urgent {
+  background: rgba(244,63,94,0.1);
+  border: 1px solid rgba(244,63,94,0.4);
+}
+.credit-info.danger {
+  background: rgba(244,63,94,0.2);
+  border: 1px solid rgba(244,63,94,0.7);
+  animation: creditPulse 2s ease-in-out infinite;
+}
+.credit-info strong { color: #f43f5e; }
+.credit-timer {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+}
+.credit-timer strong {
+  font-family: 'Courier New', monospace;
+  color: #fff;
+  font-size: 15px;
+}
+.credit-info input {
+  width: 100%;
+  padding: 10px 14px;
+  margin: 10px 0 8px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(244,63,94,0.4);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+.credit-info input:focus {
+  border-color: #f43f5e;
+  box-shadow: 0 0 15px rgba(244,63,94,0.3);
+}
+.bank-btn.repay {
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(244,63,94,0.5);
+  margin-top: 8px;
+}
+.bank-btn.repay:hover:not(:disabled) { box-shadow: 0 0 25px rgba(244,63,94,0.9); }
+.bank-btn.credit {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(239,68,68,0.5);
+}
+.bank-btn.credit:hover:not(:disabled) { box-shadow: 0 0 25px rgba(239,68,68,0.9); }
+
+.penalty-banner {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid;
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(0,0,0,0.4);
 }
 
-.rat-feed-pick {
+.bank-tip {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(100,200,255,0.15);
+  font-size: 11px;
+  color: rgba(150,220,255,0.5);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   === МОДАЛКА НАРУШЕНИЯ КРЕДИТА ===
+   ============================================================ */
+
+.credit-violation-modal {
+  max-width: 480px;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+  box-shadow: 0 0 60px rgba(244, 63, 94, 0.5) !important;
+}
+.credit-violation-modal .modal-header {
+  background: rgba(60, 0, 20, 0.5);
+  border-bottom: 1px solid rgba(244, 63, 94, 0.3);
+}
+.cvm-message {
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  padding: 20px;
+  background: rgba(244, 63, 94, 0.08);
+  border-radius: 14px;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+}
+.cvm-actions {
+  margin-top: 15px;
+  text-align: center;
+}
+.cvm-ok {
+  padding: 14px 40px;
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
   transition: all 0.2s;
+  box-shadow: 0 0 25px rgba(244, 63, 94, 0.5);
 }
-.rat-feed-pick:hover {
-  border-color: rgba(251,191,36,0.6) !important;
-  background: rgba(251,191,36,0.08) !important;
-}
+.cvm-ok:hover { transform: translateY(-2px); box-shadow: 0 0 45px rgba(244, 63, 94, 0.9); }
 
 /* ============================================================
    === МОДАЛКА СБРОСА ===
