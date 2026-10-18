@@ -46,6 +46,20 @@
     <h1>🎣 RNG Рыбалка</h1>
     <p class="subtitle">DELUXE EDITION</p>
 
+    <!-- Плашка банка -->
+    <div class="bank-main-bar hidden" id="bankMainBar" role="button" tabindex="0" aria-label="Открыть банк">
+      <span class="bmb-icon">🏦</span>
+      <span class="bmb-text">Банк: <strong id="bankMainBalance">0</strong></span>
+      <span class="bmb-rate" id="bankMainRate">+0%/час</span>
+    </div>
+
+    <!-- Плашка кредита -->
+    <div class="credit-main-bar hidden" id="creditMainBar" role="button" tabindex="0" aria-label="Открыть банк">
+      <span class="cmb-icon">💳</span>
+      <span class="cmb-text">Кредит: <strong id="creditMainAmount">0</strong></span>
+      <span class="cmb-timer" id="creditMainTimer">0:00</span>
+    </div>
+
     <div class="aquarium-boost-bar">
       <span class="aqb-icon">🐠</span>
       <span class="aqb-text">Буст аквариума: <strong id="aqBoostValue">+0%</strong></span>
@@ -146,6 +160,10 @@
     <span class="cb-icon">🎒</span>
     <span class="cb-text">Инвентарь</span>
   </button>
+  <button class="corner-btn wide" id="bankBtn" title="Банк" aria-label="Банк">
+    <span class="cb-icon">🏦</span>
+    <span class="cb-text">Банк</span>
+  </button>
   <button class="corner-btn" id="bookBtn" title="Индекс рыб" aria-label="Индекс рыб">📖</button>
   <button class="corner-btn" id="aquariumBtn" title="Аквариум" aria-label="Аквариум">
     🐠
@@ -153,6 +171,7 @@
   </button>
 </div>
 
+<!-- Модалка магазина -->
 <div class="modal-overlay" id="shopModal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
   <div class="modal">
     <div class="modal-header">
@@ -169,6 +188,7 @@
   </div>
 </div>
 
+<!-- Модалка индекса -->
 <div class="modal-overlay" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
   <div class="modal">
     <div class="modal-header">
@@ -190,14 +210,19 @@
           <div class="bs-value gold" id="bookBestValue">0</div>
         </div>
       </div>
+
+      <h4 class="section-title" style="margin-top: 0;">🎲 Шансы по редкостям</h4>
+      <div class="rarity-summary" id="raritySummary"></div>
+
       <div class="book-note">
-        Шансы указаны от базового пула (без бонусов удачи)
+        «Базовый» — без бонусов. «Текущий» — с учётом удачи, бафов и аквариума
       </div>
       <div id="bookList"></div>
     </div>
   </div>
 </div>
 
+<!-- Модалка инвентаря -->
 <div class="modal-overlay" id="inventoryModal" role="dialog" aria-modal="true" aria-labelledby="invTitle">
   <div class="modal">
     <div class="modal-header">
@@ -214,6 +239,7 @@
   </div>
 </div>
 
+<!-- Модалка аквариума -->
 <div class="modal-overlay" id="aquariumModal" role="dialog" aria-modal="true" aria-labelledby="aqTitle">
   <div class="modal">
     <div class="modal-header">
@@ -224,8 +250,8 @@
       <div class="aquarium-info">
         Размещайте <strong style="color:#fbbf24">Ультимативных</strong> или
         <strong style="color:#999">Экзотических</strong> рыб.<br>
-        Экзотика даёт <strong>×2.5 больше буста</strong>, чем ультима!<br>
-        <span style="font-size: 11px; opacity: 0.7;">Буст увеличивает цену продажи</span>
+        Экзотика даёт <strong>×2.5 больше буста к цене</strong> и <strong>×3 больше к удаче</strong>!<br>
+        <span style="font-size: 11px; opacity: 0.7;">Ультима: +10% 💰, +0.5% 🍀 · Экзот: +25% 💰, +1.5% 🍀</span>
       </div>
       <div class="aquarium-slots" id="aquariumSlots"></div>
       <div class="boost-info">
@@ -237,6 +263,7 @@
   </div>
 </div>
 
+<!-- Модалка авторолла -->
 <div class="modal-overlay" id="autorollModal" role="dialog" aria-modal="true" aria-labelledby="arTitle">
   <div class="modal">
     <div class="modal-header">
@@ -260,12 +287,14 @@
       <div class="autoroll-setting">
         <h4>Оставлять виды рыб</h4>
         <p class="hint">Кликните чтобы включить/выключить</p>
+        <p class="hint" style="color: #fbbf24; opacity: 0.9; margin-bottom: 10px;">⚠️ Показаны только те виды, которые вам уже выпадали</p>
         <div class="filter-row" id="speciesFilters"></div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Модалка мини-игр -->
 <div class="modal-overlay" id="minigameModal" role="dialog" aria-modal="true" aria-labelledby="mgTitle">
   <div class="modal">
     <div class="modal-header">
@@ -288,6 +317,7 @@
   </div>
 </div>
 
+<!-- Модалка казино -->
 <div class="modal-overlay" id="casinoModal" role="dialog" aria-modal="true" aria-labelledby="casinoTitle">
   <div class="modal">
     <div class="modal-header">
@@ -298,7 +328,8 @@
       <div class="casino-info">
         Выберите рыбу и множитель — попробуйте продать дороже!<br>
         <span style="color: #fbbf24;">Чем выше множитель — тем меньше шанс.</span><br>
-        <span style="color: #f43f5e; font-size: 11px;">⚠️ При провале рыба теряется!</span>
+        <span style="color: #f43f5e; font-size: 11px;">⚠️ При провале рыба теряется и списывается её стоимость из кошелька!</span><br>
+        <span style="color: #4ade80; font-size: 11px;">🛡️ Деньги в банке защищены.</span>
       </div>
 
       <div id="casinoStep1">
@@ -316,6 +347,68 @@
   </div>
 </div>
 
+<!-- Модалка банка -->
+<div class="modal-overlay" id="bankModal" role="dialog" aria-modal="true" aria-labelledby="bankTitle">
+  <div class="modal bank-modal">
+    <div class="modal-header">
+      <h2 id="bankTitle">🏦 Банк</h2>
+      <button class="modal-close" data-close="bankModal" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="bank-info-block">
+        <div class="bank-level" id="bankLevelInfo">Уровень 0/5</div>
+        <div class="bank-balance-display">
+          <span class="bbd-label">На счету:</span>
+          <span class="bbd-value" id="bankBalance">0</span>
+          <span class="bbd-limit">/ <span id="bankLimit">0</span></span>
+        </div>
+        <div class="bank-coins-display">
+          В кошельке: 💰 <span id="bankCoins">0</span>
+        </div>
+      </div>
+
+      <div id="bankPenaltyBlock"></div>
+
+      <div class="bank-actions">
+        <div class="bank-action-row">
+          <input type="number" id="depositInput" placeholder="Сумма" min="1">
+          <button class="bank-btn deposit" id="depositBtn">Положить</button>
+          <button class="bank-btn deposit-all" id="depositAllBtn">Всё</button>
+        </div>
+        <div class="bank-action-row">
+          <input type="number" id="withdrawInput" placeholder="Сумма" min="1">
+          <button class="bank-btn withdraw" id="withdrawBtn">Снять</button>
+          <button class="bank-btn withdraw-all" id="withdrawAllBtn">Всё</button>
+        </div>
+      </div>
+
+      <div id="bankCreditBlock"></div>
+
+      <div class="bank-tip">
+        💡 Проценты начисляются только пока игра открыта.<br>
+        🛡️ Деньги в банке защищены от проигрыша в казино.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка нарушения кредита -->
+<div class="modal-overlay" id="creditViolationModal" role="dialog" aria-modal="true" aria-labelledby="cvmTitle">
+  <div class="modal credit-violation-modal">
+    <div class="modal-header">
+      <h2 id="cvmTitle">⚠️ Нарушение</h2>
+      <button class="modal-close" data-close="creditViolationModal" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cvm-message" id="cvmMessage"></div>
+      <div class="cvm-actions">
+        <button class="cvm-ok" id="cvmOkBtn">Понятно</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка сброса -->
 <div class="modal-overlay" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
   <div class="modal reset-modal">
     <div class="modal-header">
@@ -335,6 +428,7 @@
           <li>🐠 Весь аквариум</li>
           <li>⬆️ Все улучшения и уровни</li>
           <li>🎯 Жетоны мини-игр</li>
+          <li>🏦 Деньги в банке и кредиты</li>
         </ul>
         <div class="rw-text" style="margin-top: 12px;">
           Это действие <strong style="color:#f43f5e;">НЕОБРАТИМО</strong>.
@@ -368,6 +462,7 @@
   </div>
 </div>
 
+<!-- Модалка кормления крысы -->
 <div class="modal-overlay" id="ratFeedModal" role="dialog" aria-modal="true" aria-labelledby="ratTitle">
   <div class="modal">
     <div class="modal-header">
