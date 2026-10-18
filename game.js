@@ -9,20 +9,19 @@ let manualRollsCount = 0;
 // === ЛОГ ОБНОВЛЕНИЙ ===
 // ============================================================
 
-const CURRENT_VERSION = 'v1.6';
+const CURRENT_VERSION = 'v1.8';
 const UPDATE_LOG_KEY = 'fih-game-last-seen-version';
 
 const UPDATE_LOG_CONTENT = `
   <ul>
-    <li>⚙️ <strong>Настраиваемый авторолл</strong> — возвращён в магазин! Фильтры редкостей, видов и мин. цены</li>
-    <li>🐛 <strong>Исправлен баг</strong> — двойной улов теперь корректно учитывается в статистике</li>
-    <li>🐛 <strong>Исправлен баг</strong> — игра больше не «зависает» при ошибке ролла</li>
-    <li>🐛 <strong>Исправлен баг</strong> — авторолл не сбрасывает ручное решение</li>
-    <li>🎰 <strong>Казино</strong> — выбранная рыба сохраняется после игры</li>
-    <li>🐠 <strong>Аквариум</strong> — защита от некорректных уровней</li>
-    <li>💾 <strong>Сохранения</strong> — реже пишутся в localStorage (меньше нагрузки)</li>
+    <li>🏦 <strong>Банк</strong> — новый апгрейд! Храните деньги под проценты (до 25%/час). Открывается после Крысы</li>
+    <li>💳 <strong>Кредит</strong> — на 5 уровне банка можно взять кредит под 20%. Не вернёте вовремя — ждите последствий!</li>
+    <li>⚖️ <strong>Казино</strong> — шансы повышены, но при проигрыше теперь списывается и стоимость рыбы</li>
+    <li>🐠 <strong>Аквариум</strong> — теперь даёт буст к удаче (экзотика лучше ультимативов!)</li>
+    <li>📖 <strong>Индекс</strong> — показывает текущие шансы с учётом всех бафов и улучшений</li>
+    <li>⚖️ <strong>Баланс</strong> — каждая следующая редкость строго реже предыдущей</li>
   </ul>
-  <div class="ul-hint">Следующие обновления — скоро!</div>
+  <div class="ul-hint">Удачи на рыбалке!</div>
 `;
 
 function showUpdateLog() {
@@ -123,6 +122,7 @@ function saveGame() {
       ratState: gameState.rat.state,
       ratVisible: gameState.rat.visible,
       ratFedUntil: gameState.rat.fedUntil,
+      bank: gameState.bank,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch (e) {
@@ -130,7 +130,6 @@ function saveGame() {
   }
 }
 
-// Дебаунс сохранений — не чаще раза в секунду
 let saveTimer = null;
 function scheduleSave() {
   clearTimeout(saveTimer);
@@ -149,15 +148,8 @@ function loadGame() {
       caughtSpecies: data.caughtSpecies || {},
       aquarium: data.aquarium || [],
       upgrades: Object.assign({
-        luck: 0,
-        autoroll: false,
-        customAutoroll: false,
-        aqLevel: 0,
-        fastRod: 0,
-        minigames: false,
-        extraRod: 0,
-        casino: false,
-        rat: false,
+        luck: 0, autoroll: false, customAutoroll: false, aqLevel: 0,
+        fastRod: 0, minigames: false, extraRod: 0, casino: false, rat: false,
       }, data.upgrades || {}),
       autorollFilters: Object.assign({
         rarities: [], species: [], minPrice: 0
@@ -171,7 +163,15 @@ function loadGame() {
         visible: data.ratVisible !== false,
         fedUntil: data.ratFedUntil || 0,
       },
+      bank: Object.assign({
+        level: 0, balance: 0, lastTick: Date.now(),
+        credit: { active: false, amount: 0, owed: 0, dueAt: 0 },
+        debt: 0, penaltyLevel: 0,
+      }, data.bank || {}),
     });
+    
+    // Оффлайн проценты не начисляются
+    gameState.bank.lastTick = Date.now();
     return true;
   } catch (e) {
     console.warn('Load error', e);
@@ -179,7 +179,6 @@ function loadGame() {
   }
 }
 
-// Периодическое сохранение — реже, чем было (было 5000)
 setInterval(saveGame, 15000);
 window.addEventListener('beforeunload', saveGame);
 
@@ -188,73 +187,64 @@ window.addEventListener('beforeunload', saveGame);
 // ============================================================
 
 const rarityMultiplier = {
-  common: 1,
-  uncommon: 2.2,
-  rare: 6,
-  epic: 14,
-  legendary: 45,
-  exotic: 120,
-  mythic: 300,
-  ultimate: 900
+  common: 1, uncommon: 2.2, rare: 6, epic: 14,
+  legendary: 45, exotic: 120, mythic: 300, ultimate: 900
 };
 
 const rarityNames = {
-  common: 'Обычная',
-  uncommon: 'Необычная',
-  rare: 'Редкая',
-  epic: 'Эпическая',
-  legendary: 'Легендарная',
-  exotic: 'Экзотическая',
-  mythic: 'Мифическая',
-  ultimate: 'УЛЬТИМАТИВНАЯ'
+  common: 'Обычная', uncommon: 'Необычная', rare: 'Редкая',
+  epic: 'Эпическая', legendary: 'Легендарная', exotic: 'Экзотическая',
+  mythic: 'Мифическая', ultimate: 'УЛЬТИМАТИВНАЯ'
 };
 
 const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'exotic', 'mythic', 'ultimate'];
 
 const fishList = [
-  { id: 'perch',      name: 'Окунь',              emoji: '🐟', rarity: 'common',    chance: 34,    price: 5 },
-  { id: 'crucian',    name: 'Карась',             emoji: '🐠', rarity: 'common',    chance: 28,    price: 4 },
-  { id: 'roach',      name: 'Плотва',             emoji: '🐟', rarity: 'common',    chance: 22,    price: 3 },
-
-  { id: 'pike',       name: 'Щука',               emoji: '🐡', rarity: 'uncommon',  chance: 7,     price: 15 },
-  { id: 'zander',     name: 'Судак',              emoji: '🐟', rarity: 'uncommon',  chance: 5,     price: 18 },
-  { id: 'carp',       name: 'Карп',               emoji: '🐠', rarity: 'uncommon',  chance: 3.5,   price: 20 },
-
-  { id: 'catfish',    name: 'Сом',                emoji: '🐋', rarity: 'rare',      chance: 1.5,   price: 60 },
-  { id: 'trout',      name: 'Форель',             emoji: '🐟', rarity: 'rare',      chance: 1.0,   price: 80 },
-  { id: 'octopus',    name: 'Осьминог',           emoji: '🐙', rarity: 'rare',      chance: 0.7,   price: 100 },
-
-  { id: 'shark',      name: 'Акула',              emoji: '🦈', rarity: 'epic',      chance: 0.3,   price: 250 },
-  { id: 'swordfish',  name: 'Меч-рыба',           emoji: '🗡️', rarity: 'epic',      chance: 0.2,   price: 300 },
-  { id: 'sturgeon',   name: 'Осётр',              emoji: '🐟', rarity: 'epic',      chance: 0.15,  price: 400 },
-
-  { id: 'whale',      name: 'Кит',                emoji: '🐳', rarity: 'legendary', chance: 0.08,  price: 500 },
-  { id: 'crab',       name: 'Камчатский Краб',    emoji: '🦀', rarity: 'legendary', chance: 0.05,  price: 800 },
-  { id: 'manta',      name: 'Манта',              emoji: '🐟', rarity: 'legendary', chance: 0.04,  price: 900 },
-
-  { id: 'searabbit',  name: 'Морской Кролик',     emoji: '🐰', rarity: 'exotic',    chance: 0.020, price: 6000 },
-  { id: 'seaurchin',  name: 'Морской Ёж',         emoji: '🦔', rarity: 'exotic',    chance: 0.015, price: 7000 },
-
-  { id: 'coelacanth', name: 'Латимерия',          emoji: '🐟', rarity: 'mythic',    chance: 0.015, price: 1500 },
-  { id: 'giantsquid', name: 'Гигантский Кальмар', emoji: '🦑', rarity: 'mythic',    chance: 0.008, price: 2000 },
-
-  { id: 'bluewhale',  name: 'Синий Кит',          emoji: '🌈', rarity: 'ultimate',  chance: 0.02,  price: 10000 },
-  { id: 'megamouth',  name: 'Большерот',          emoji: '🌈', rarity: 'ultimate',  chance: 0.012, price: 8000 },
-  { id: 'greenland',  name: 'Гренландская Акула', emoji: '🌈', rarity: 'ultimate',  chance: 0.008, price: 12000 },
+  { id: 'perch',      name: 'Окунь',              emoji: '🐟', rarity: 'common',    chance: 33.0,   price: 5 },
+  { id: 'crucian',    name: 'Карась',             emoji: '🐠', rarity: 'common',    chance: 27.0,   price: 4 },
+  { id: 'roach',      name: 'Плотва',             emoji: '🐟', rarity: 'common',    chance: 21.0,   price: 3 },
+  { id: 'pike',       name: 'Щука',               emoji: '🐡', rarity: 'uncommon',  chance: 7.0,    price: 15 },
+  { id: 'zander',     name: 'Судак',              emoji: '🐟', rarity: 'uncommon',  chance: 5.0,    price: 18 },
+  { id: 'carp',       name: 'Карп',               emoji: '🐠', rarity: 'uncommon',  chance: 3.5,    price: 20 },
+  { id: 'catfish',    name: 'Сом',                emoji: '🐋', rarity: 'rare',      chance: 1.5,    price: 60 },
+  { id: 'trout',      name: 'Форель',             emoji: '🐟', rarity: 'rare',      chance: 1.0,    price: 80 },
+  { id: 'octopus',    name: 'Осьминог',           emoji: '🐙', rarity: 'rare',      chance: 0.7,    price: 100 },
+  { id: 'shark',      name: 'Акула',              emoji: '🦈', rarity: 'epic',      chance: 0.3,    price: 250 },
+  { id: 'swordfish',  name: 'Меч-рыба',           emoji: '🗡️', rarity: 'epic',      chance: 0.2,    price: 300 },
+  { id: 'sturgeon',   name: 'Осётр',              emoji: '🐟', rarity: 'epic',      chance: 0.15,   price: 400 },
+  { id: 'whale',      name: 'Кит',                emoji: '🐳', rarity: 'legendary', chance: 0.08,   price: 500 },
+  { id: 'crab',       name: 'Камчатский Краб',    emoji: '🦀', rarity: 'legendary', chance: 0.05,   price: 800 },
+  { id: 'manta',      name: 'Манта',              emoji: '🐟', rarity: 'legendary', chance: 0.04,   price: 900 },
+  { id: 'searabbit',  name: 'Морской Кролик',     emoji: '🐰', rarity: 'exotic',    chance: 0.020,  price: 6000 },
+  { id: 'seaurchin',  name: 'Морской Ёж',         emoji: '🦔', rarity: 'exotic',    chance: 0.015,  price: 7000 },
+  { id: 'coelacanth', name: 'Латимерия',          emoji: '🐟', rarity: 'mythic',    chance: 0.012,  price: 1500 },
+  { id: 'giantsquid', name: 'Гигантский Кальмар', emoji: '🦑', rarity: 'mythic',    chance: 0.008,  price: 2000 },
+  { id: 'bluewhale',  name: 'Синий Кит',          emoji: '🌈', rarity: 'ultimate',  chance: 0.006,  price: 10000 },
+  { id: 'megamouth',  name: 'Большерот',          emoji: '🌈', rarity: 'ultimate',  chance: 0.004,  price: 8000 },
+  { id: 'greenland',  name: 'Гренландская Акула', emoji: '🌈', rarity: 'ultimate',  chance: 0.003,  price: 12000 },
 ];
 
 const AQUARIUM_LEVELS = [
-  { level: 0, slots: 1 },
-  { level: 1, slots: 2 },
-  { level: 2, slots: 3 },
-  { level: 3, slots: 4 },
-  { level: 4, slots: 5 },
+  { level: 0, slots: 1 }, { level: 1, slots: 2 }, { level: 2, slots: 3 },
+  { level: 3, slots: 4 }, { level: 4, slots: 5 },
+];
+
+const BANK_LEVELS = [
+  { level: 0, limit: 0, rate: 0 },
+  { level: 1, limit: 100000, rate: 5 },
+  { level: 2, limit: 1000000, rate: 8 },
+  { level: 3, limit: 10000000, rate: 12 },
+  { level: 4, limit: 100000000, rate: 18 },
+  { level: 5, limit: 1000000000, rate: 25 },
 ];
 
 function getAqSlots() {
-  // Клампим на случай старых сейвов с уровнем > 4
   const lvl = Math.max(0, Math.min(gameState.upgrades.aqLevel || 0, AQUARIUM_LEVELS.length - 1));
   return AQUARIUM_LEVELS[lvl].slots;
+}
+
+function getBankInfo() {
+  return BANK_LEVELS[Math.max(0, Math.min(gameState.bank.level || 0, 5))];
 }
 
 const MINIGAME_TOKEN_MAX = 15;
@@ -274,49 +264,22 @@ const RAT_SELL_BONUS = 2;
 // ============================================================
 
 const gameState = {
-  totalCaught: 0,
-  coins: 0,
-  inventory: {},
-  caughtSpecies: {},
-  aquarium: [],
-  bestValue: 0,
-  minigameTokens: 0,
-
-  buff: {
-    luckBoost: 0,
-    speedBoost: 0,
-    sellBoost: 0,
-    expiresAt: 0,
-  },
-
-  rod2Enabled: true,
-  lastMinigameTime: 0,
-
-  rat: {
-    state: 'hungry',
-    visible: true,
-    fedUntil: 0,
-  },
-
+  totalCaught: 0, coins: 0, inventory: {}, caughtSpecies: {},
+  aquarium: [], bestValue: 0, minigameTokens: 0,
+  buff: { luckBoost: 0, speedBoost: 0, sellBoost: 0, expiresAt: 0 },
+  rod2Enabled: true, lastMinigameTime: 0,
+  rat: { state: 'hungry', visible: true, fedUntil: 0 },
   upgrades: {
-    luck: 0,
-    autoroll: false,
-    customAutoroll: false,
-    aqLevel: 0,
-    fastRod: 0,
-    minigames: false,
-    extraRod: 0,
-    casino: false,
-    rat: false,
+    luck: 0, autoroll: false, customAutoroll: false, aqLevel: 0,
+    fastRod: 0, minigames: false, extraRod: 0, casino: false, rat: false,
   },
-
-  autorollFilters: {
-    rarities: [],
-    species: [],
-    minPrice: 0
-  },
-
+  autorollFilters: { rarities: [], species: [], minPrice: 0 },
   autorollActive: false,
+  bank: {
+    level: 0, balance: 0, lastTick: Date.now(),
+    credit: { active: false, amount: 0, owed: 0, dueAt: 0 },
+    debt: 0, penaltyLevel: 0,
+  }
 };
 
 // ============================================================
@@ -388,7 +351,7 @@ const upgradesList = [
   },
   {
     id: 'aqLevel', icon: '🐠', name: 'Аквариум',
-    desc: 'Расширяет аквариум: 1 слот → 2 → 3 → 4 → 5. Буст к цене продажи',
+    desc: 'Расширяет аквариум: 1 слот → 2 → 3 → 4 → 5. Буст к цене и удаче',
     maxLevel: 4, baseCost: 40000, costMult: 2.2,
     isUnlocked: () => gameState.upgrades.luck >= 10,
     getLevel: () => gameState.upgrades.aqLevel,
@@ -406,6 +369,15 @@ const upgradesList = [
     link: 'https://astral228777.github.io/rat-coin-game/',
     linkText: '🐀 Rat Coin Game'
   },
+  {
+    id: 'bank', icon: '🏦', name: 'Банк',
+    desc: 'Храните деньги под проценты (до 25%/час). На 5 уровне — кредиты',
+    maxLevel: 5, baseCost: 50000, costMult: 2.5,
+    isUnlocked: () => gameState.upgrades.rat,
+    getLevel: () => gameState.bank.level,
+    onBuy: () => { gameState.bank.level++; },
+    lockedHint: 'Требуется Крыса'
+  }
 ];
 
 const minigamesList = [
@@ -415,14 +387,14 @@ const minigamesList = [
 ];
 
 const casinoChances = {
-  common:    { 2: 90, 3: 60, 4: 30, 5: 12 },
-  uncommon:  { 2: 80, 3: 50, 4: 22, 5: 8 },
-  rare:      { 2: 70, 3: 40, 4: 16, 5: 6 },
-  epic:      { 2: 60, 3: 30, 4: 12, 5: 4 },
-  legendary: { 2: 50, 3: 22, 4: 8,  5: 3 },
-  exotic:    { 2: 40, 3: 18, 4: 6,  5: 2 },
-  mythic:    { 2: 30, 3: 12, 4: 5,  5: 1.5 },
-  ultimate:  { 2: 25, 3: 10, 4: 4,  5: 1 },
+  common:    { 2: 92, 3: 65, 4: 35, 5: 15 },
+  uncommon:  { 2: 84, 3: 55, 4: 27, 5: 11 },
+  rare:      { 2: 75, 3: 45, 4: 20, 5: 9 },
+  epic:      { 2: 65, 3: 35, 4: 15, 5: 6 },
+  legendary: { 2: 55, 3: 27, 4: 11, 5: 5 },
+  exotic:    { 2: 45, 3: 22, 4: 9,  5: 4 },
+  mythic:    { 2: 35, 3: 16, 4: 7,  5: 3 },
+  ultimate:  { 2: 30, 3: 14, 4: 6,  5: 2.5 },
 };
 
 // ============================================================
@@ -431,32 +403,32 @@ const casinoChances = {
 
 const $ = id => document.getElementById(id);
 
-const rollBtn         = $('rollBtn');
-const fishEmoji       = $('fishEmoji');
-const fishName        = $('fishName');
-const fishRarity      = $('fishRarity');
-const fishValue       = $('fishValue');
-const catchDisplay    = $('catchDisplay');
-const coinsDisplay    = $('coinsDisplay');
-const shopCoins       = $('shopCoins');
-const inventoryCoins  = $('inventoryCoins');
-const notificationEl  = $('notification');
-const autorollToggle  = $('autorollToggle');
-const autorollIcon    = $('autorollIcon');
+const rollBtn = $('rollBtn');
+const fishEmoji = $('fishEmoji');
+const fishName = $('fishName');
+const fishRarity = $('fishRarity');
+const fishValue = $('fishValue');
+const catchDisplay = $('catchDisplay');
+const coinsDisplay = $('coinsDisplay');
+const shopCoins = $('shopCoins');
+const inventoryCoins = $('inventoryCoins');
+const notificationEl = $('notification');
+const autorollToggle = $('autorollToggle');
+const autorollIcon = $('autorollIcon');
 const autorollSettingsBtn = $('autorollSettingsBtn');
-const aqBadge         = $('aqBadge');
-const aqBoostValue    = $('aqBoostValue');
-const aqCount         = $('aqCount');
-const decisionRow     = $('decisionRow');
-const keepBtn         = $('keepBtn');
-const sellBtn         = $('sellBtn');
-const decPrice        = $('decPrice');
-const extraBar        = $('extraBar');
-const minigameBadge   = $('minigameBadge');
-const rod2ToggleRow   = $('rod2ToggleRow');
-const rod2Toggle      = $('rod2Toggle');
-const rod2State       = $('rod2State');
-const buffBar         = $('buffBar');
+const aqBadge = $('aqBadge');
+const aqBoostValue = $('aqBoostValue');
+const aqCount = $('aqCount');
+const decisionRow = $('decisionRow');
+const keepBtn = $('keepBtn');
+const sellBtn = $('sellBtn');
+const decPrice = $('decPrice');
+const extraBar = $('extraBar');
+const minigameBadge = $('minigameBadge');
+const rod2ToggleRow = $('rod2ToggleRow');
+const rod2Toggle = $('rod2Toggle');
+const rod2State = $('rod2State');
+const buffBar = $('buffBar');
 
 // ============================================================
 // === УТИЛИТЫ ===
@@ -487,14 +459,12 @@ function getRarityColor(rarity) {
 }
 
 // ============================================================
-// === БАФЫ ===
+// === БАФЫ И УДАЧА ===
 // ============================================================
 
 function isBuffActive() { return gameState.buff.expiresAt > Date.now(); }
 function isRatFed() {
-  return gameState.upgrades.rat &&
-         gameState.rat.state === 'happy' &&
-         gameState.rat.fedUntil > Date.now();
+  return gameState.upgrades.rat && gameState.rat.state === 'happy' && gameState.rat.fedUntil > Date.now();
 }
 
 function getBuffLuckBonus() {
@@ -534,19 +504,35 @@ function updateBuffBar() {
 setInterval(updateBuffBar, 1000);
 
 // ============================================================
-// === RNG ===
+// === RNG И ЦЕНЫ ===
 // ============================================================
+
+function getAquariumLuckBonus() {
+  let bonus = 0;
+  for (const aq of gameState.aquarium) {
+    const fish = fishList.find(f => f.id === aq.fishId);
+    if (!fish) continue;
+    if (fish.rarity === 'ultimate') bonus += 0.005; // +0.5%
+    if (fish.rarity === 'exotic')   bonus += 0.015; // +1.5%
+  }
+  return bonus;
+}
 
 function rollFish() {
   const luckLevel = gameState.upgrades.luck;
   const buffLuck = getBuffLuckBonus() / 100;
-  const luckBoost = 1 + luckLevel * 0.12 + buffLuck;
+  const baseLuckBoost = 1 + luckLevel * 0.12 + buffLuck;
+  const aqLuckBonus = getAquariumLuckBonus();
 
   const weighted = fishList.map(f => {
     let weight = f.chance;
     const rarityIdx = rarityOrder.indexOf(f.rarity);
-    if (rarityIdx >= 4) weight *= luckBoost;
-    else if (rarityIdx === 3) weight *= (1 + luckLevel * 0.08);
+    if (rarityIdx >= 4) {
+      weight *= baseLuckBoost;
+      weight *= (1 + aqLuckBonus);
+    } else if (rarityIdx === 3) {
+      weight *= (1 + luckLevel * 0.08);
+    }
     return { fish: f, weight };
   });
 
@@ -559,17 +545,41 @@ function rollFish() {
   return fishList[0];
 }
 
+function calcCurrentChances() {
+  const luckLevel = gameState.upgrades.luck;
+  const buffLuck = getBuffLuckBonus() / 100;
+  const baseLuckBoost = 1 + luckLevel * 0.12 + buffLuck;
+  const aqLuckBonus = getAquariumLuckBonus();
+
+  let totalWeight = 0;
+  const weights = fishList.map(f => {
+    let weight = f.chance;
+    const rarityIdx = rarityOrder.indexOf(f.rarity);
+    if (rarityIdx >= 4) {
+      weight *= baseLuckBoost;
+      weight *= (1 + aqLuckBonus);
+    } else if (rarityIdx === 3) {
+      weight *= (1 + luckLevel * 0.08);
+    }
+    totalWeight += weight;
+    return { fish: f, weight };
+  });
+
+  const result = {};
+  weights.forEach(({ fish, weight }) => {
+    result[fish.id] = {
+      percent: (weight / totalWeight) * 100,
+      oneIn: weight > 0 ? Math.round(totalWeight / weight) : Infinity,
+    };
+  });
+  return result;
+}
+
 function calcFishValue(fish) {
   return Math.floor(fish.price * rarityMultiplier[fish.rarity]);
 }
 
-function applyAquariumBoost(value) {
-  const aquariumBoost = getAquariumBonus();
-  const buffSellBoost = getBuffSellBonus() / 100;
-  return Math.floor(value * (1 + aquariumBoost + buffSellBoost));
-}
-
-function getAquariumBonus() {
+function getAquariumSellBonus() {
   let bonus = 0;
   for (const aq of gameState.aquarium) {
     const fish = fishList.find(f => f.id === aq.fishId);
@@ -580,8 +590,14 @@ function getAquariumBonus() {
   return bonus;
 }
 
+function applyAquariumBoost(value) {
+  const aquariumBoost = getAquariumSellBonus();
+  const buffSellBoost = getBuffSellBonus() / 100;
+  return Math.floor(value * (1 + aquariumBoost + buffSellBoost));
+}
+
 // ============================================================
-// === УЧЁТ УЛОВА (единая точка) ===
+// === УЧЁТ УЛОВА ===
 // ============================================================
 
 function registerCatch(fish, value) {
@@ -600,12 +616,10 @@ let pendingCatch = null;
 
 async function castRod(silent = false) {
   if (isRolling) return;
-  // Защита: не начинаем новый ролл, если висит решение (ручное или от предыдущего тика)
   if (pendingCatch) return;
 
   isRolling = true;
   decisionRow.classList.remove('active');
-
   let spinInterval = null;
 
   try {
@@ -656,7 +670,6 @@ async function castRod(silent = false) {
     if (fish.rarity === 'mythic')    catchDisplay.classList.add('glow-mythic');
     if (fish.rarity === 'ultimate')  catchDisplay.classList.add('glow-ultimate');
 
-    // Единый учёт: регистрируем первую рыбу всегда
     registerCatch(fish, value);
 
     const extraChance = gameState.rod2Enabled ? (gameState.upgrades.extraRod || 0) * 0.08 : 0;
@@ -664,7 +677,6 @@ async function castRod(silent = false) {
     if (extraChance > 0 && Math.random() < extraChance) {
       bonusFish = rollFish();
       bonusValue = applyAquariumBoost(calcFishValue(bonusFish));
-      // Единый учёт: регистрируем бонусную рыбу тоже
       registerCatch(bonusFish, bonusValue);
     }
 
@@ -694,11 +706,8 @@ async function castRod(silent = false) {
       return;
     }
 
-    // silent (авторолл)
     handleFishCatch(fish, value);
-    if (bonusFish) {
-      handleFishCatch(bonusFish, bonusValue);
-    }
+    if (bonusFish) handleFishCatch(bonusFish, bonusValue);
 
     updateAllUI();
     scheduleSave();
@@ -710,9 +719,6 @@ async function castRod(silent = false) {
     if (!silent) rollBtn.disabled = false;
   } finally {
     if (spinInterval) clearInterval(spinInterval);
-    // Снимаем isRolling, только если нет висящего решения
-    // (при ручном ролле с решением — isRolling должен сброситься, чтобы кнопки работали,
-    // но новый ролл не начнётся из-за guard по pendingCatch)
     isRolling = false;
   }
 }
@@ -882,14 +888,11 @@ function updateRatUI() {
     const timeStr = m > 0 ? `${m}м ${s}с` : `${s}с`;
     stateEl.textContent = `довольна 😊 +1% удача, +2% цена · ${timeStr}`;
     stateEl.style.color = '#4ade80';
-    emojiEl.textContent = '🐀';
   } else {
     stateEl.textContent = 'голодна';
     stateEl.style.color = '#fbbf24';
-    emojiEl.textContent = '🐀';
   }
 }
-
 setInterval(updateRatUI, 1000);
 
 function openRatFeedModal() {
@@ -924,9 +927,7 @@ function openRatFeedModal() {
         <button class="btn-sell">🍽 Скормить</button>
       </div>
     `;
-    card.querySelector('.btn-sell').addEventListener('click', () => {
-      feedRat(fishId);
-    });
+    card.querySelector('.btn-sell').addEventListener('click', () => feedRat(fishId));
     container.appendChild(card);
   });
 
@@ -949,8 +950,382 @@ function feedRat(fishId) {
   updateRatUI();
   updateAllUI();
   scheduleSave();
-
   $('ratFeedModal').classList.remove('active');
+}
+
+// ============================================================
+// === БАНК ===
+// ============================================================
+
+let bankTickInterval = null;
+
+function startBankTick() {
+  if (bankTickInterval) clearInterval(bankTickInterval);
+  bankTickInterval = setInterval(() => {
+    if (gameState.bank.level === 0) return;
+    if (gameState.bank.debt > 0) return;
+    if (gameState.bank.credit.active && Date.now() > gameState.bank.credit.dueAt) return;
+    if (gameState.bank.balance <= 0) return;
+
+    const now = Date.now();
+    const elapsed = now - gameState.bank.lastTick;
+    // Начисляем только если прошло >= 10 сек и вкладка активна (не оффлайн)
+    if (elapsed >= 10000 && document.visibilityState === 'visible') {
+      const info = getBankInfo();
+      const ratePerSec = (info.rate / 100) / 3600;
+      const seconds = elapsed / 1000;
+      const gain = Math.floor(gameState.bank.balance * ratePerSec * seconds);
+      
+      if (gain > 0) {
+        gameState.bank.balance += gain;
+        // Не превышаем лимит
+        if (gameState.bank.balance > info.limit) {
+          const overflow = gameState.bank.balance - info.limit;
+          gameState.bank.balance = info.limit;
+          // Возвращаем излишек в кошелёк
+          gameState.coins += overflow;
+          notify(`🏦 Лимит банка достигнут. Излишек (${formatNumber(overflow)}) переведён в кошелёк`, 'gold');
+        }
+        scheduleSave();
+        if ($('bankModal').classList.contains('active')) renderBankModal();
+      }
+      gameState.bank.lastTick = now;
+    }
+  }, 5000);
+}
+
+function getTotalCapital() {
+  let fishValue = 0;
+  for (const [fishId, count] of Object.entries(gameState.inventory)) {
+    const fish = fishList.find(f => f.id === fishId);
+    if (!fish) continue;
+    fishValue += calcFishValue(fish) * count;
+  }
+  return gameState.coins + gameState.bank.balance + fishValue;
+}
+
+function openBankModal() {
+  if (gameState.bank.level === 0) {
+    notify('Купите Банк в магазине!', 'error');
+    return;
+  }
+  renderBankModal();
+  $('bankModal').classList.add('active');
+}
+
+function renderBankModal() {
+  const modal = $('bankModal');
+  if (!modal) return;
+  const info = getBankInfo();
+  const bank = gameState.bank;
+  
+  $('bankLevelInfo').textContent = `Уровень ${bank.level}/5 · ${info.rate}% в час · Лимит: ${formatNumber(info.limit)}`;
+  $('bankBalance').textContent = formatNumber(bank.balance);
+  $('bankLimit').textContent = formatNumber(info.limit);
+  $('bankCoins').textContent = formatNumber(gameState.coins);
+
+  const creditBlock = $('bankCreditBlock');
+  if (bank.credit.active) {
+    const leftMs = Math.max(0, bank.credit.dueAt - Date.now());
+    const leftSec = Math.ceil(leftMs / 1000);
+    const m = Math.floor(leftSec / 60);
+    const s = leftSec % 60;
+    const timeStr = `${m}:${s.toString().padStart(2, '0')}`;
+    creditBlock.innerHTML = `
+      <div class="credit-info urgent">
+        <div>💳 Кредит: <strong>${formatNumber(bank.credit.owed)}</strong> (взято ${formatNumber(bank.credit.amount)})</div>
+        <div class="credit-timer">⏳ Вернуть через: <strong>${timeStr}</strong></div>
+        <button class="bank-btn repay" id="repayCreditBtn">Выплатить кредит</button>
+      </div>
+    `;
+    $('repayCreditBtn').addEventListener('click', repayCredit);
+  } else if (bank.debt > 0) {
+    creditBlock.innerHTML = `
+      <div class="credit-info danger">
+        <div>🚨 Долг: <strong>${formatNumber(bank.debt)}</strong></div>
+        <div style="font-size:12px;margin-top:4px;">Банк заблокирован. Погасите долг.</div>
+        <button class="bank-btn repay" id="repayDebtBtn">Погасить долг</button>
+      </div>
+    `;
+    $('repayDebtBtn').addEventListener('click', repayDebt);
+  } else if (bank.level === 5) {
+    const maxCredit = Math.floor(getTotalCapital() * 0.5);
+    creditBlock.innerHTML = `
+      <div class="credit-info">
+        <div>Доступный кредит: <strong>${formatNumber(maxCredit)}</strong></div>
+        <div style="font-size:12px;opacity:0.7;">Процент: 20% · Срок: 10 минут</div>
+        <input type="number" id="creditAmountInput" placeholder="Сумма кредита" min="1000" max="${maxCredit}" step="1000">
+        <button class="bank-btn credit" id="takeCreditBtn">Взять кредит</button>
+      </div>
+    `;
+    $('takeCreditBtn').addEventListener('click', () => {
+      const val = parseInt($('creditAmountInput').value) || 0;
+      takeCredit(val, maxCredit);
+    });
+  } else {
+    creditBlock.innerHTML = `<div class="credit-info"><div style="opacity:0.7;">Кредит доступен на 5 уровне банка.</div></div>`;
+  }
+
+  const penaltyBlock = $('bankPenaltyBlock');
+  if (bank.penaltyLevel > 0) {
+    const levelNames = ['', '⚠️ Предупреждение', '🚫 Блокировка + Штраф', '💀 Конфискация'];
+    const levelColors = ['', '#fbbf24', '#f97316', '#f43f5e'];
+    penaltyBlock.innerHTML = `
+      <div class="penalty-banner" style="border-color:${levelColors[bank.penaltyLevel]};">
+        <div style="color:${levelColors[bank.penaltyLevel]};font-weight:700;">${levelNames[bank.penaltyLevel]}</div>
+        <div style="font-size:12px;margin-top:4px;">Нарушение кредита. Погасите долг для снятия ограничений.</div>
+      </div>
+    `;
+  } else {
+    penaltyBlock.innerHTML = '';
+  }
+
+  // Кнопки вклада/снятия
+  $('depositBtn').disabled = gameState.coins <= 0 || bank.balance >= info.limit || bank.debt > 0;
+  $('withdrawBtn').disabled = bank.balance <= 0 || bank.debt > 0;
+
+  $('depositInput').value = '';
+  $('withdrawInput').value = '';
+}
+
+function depositToBank(amount) {
+  const info = getBankInfo();
+  if (amount <= 0) return;
+  if (amount > gameState.coins) amount = gameState.coins;
+  if (gameState.bank.balance + amount > info.limit) {
+    amount = info.limit - gameState.bank.balance;
+  }
+  if (amount <= 0) { notify('Лимит банка достигнут', 'error'); return; }
+  gameState.coins -= amount;
+  gameState.bank.balance += amount;
+  notify(`🏦 Положено ${formatNumber(amount)} в банк`, 'gold');
+  gameState.bank.lastTick = Date.now();
+  updateAllUI();
+  renderBankModal();
+  scheduleSave();
+}
+
+function withdrawFromBank(amount) {
+  if (amount <= 0) return;
+  if (amount > gameState.bank.balance) amount = gameState.bank.balance;
+  gameState.bank.balance -= amount;
+  gameState.coins += amount;
+  notify(`🏦 Снято ${formatNumber(amount)} из банка`, 'gold');
+  updateAllUI();
+  renderBankModal();
+  scheduleSave();
+}
+
+function takeCredit(amount, maxCredit) {
+  if (gameState.bank.credit.active || gameState.bank.debt > 0) return;
+  if (amount <= 0 || amount > maxCredit) {
+    notify(`Сумма должна быть от 1 до ${formatNumber(maxCredit)}`, 'error');
+    return;
+  }
+  gameState.coins += amount;
+  gameState.bank.credit = {
+    active: true,
+    amount: amount,
+    owed: Math.floor(amount * 1.2),
+    dueAt: Date.now() + 10 * 60 * 1000,
+  };
+  notify(`💳 Взят кредит ${formatNumber(amount)}. Вернуть ${formatNumber(gameState.bank.credit.owed)} за 10 минут`, 'gold');
+  updateAllUI();
+  renderBankModal();
+  scheduleSave();
+}
+
+function repayCredit() {
+  const credit = gameState.bank.credit;
+  if (!credit.active) return;
+  const owed = credit.owed;
+  if (gameState.coins + gameState.bank.balance < owed) {
+    notify('Недостаточно средств для выплаты кредита!', 'error');
+    return;
+  }
+  // Сначала из кошелька, потом из банка
+  let remaining = owed;
+  if (gameState.coins >= remaining) {
+    gameState.coins -= remaining;
+    remaining = 0;
+  } else {
+    remaining -= gameState.coins;
+    gameState.coins = 0;
+    gameState.bank.balance -= remaining;
+    remaining = 0;
+  }
+  gameState.bank.credit = { active: false, amount: 0, owed: 0, dueAt: 0 };
+  gameState.bank.penaltyLevel = 0;
+  notify('✅ Кредит выплачен!', 'green');
+  updateAllUI();
+  renderBankModal();
+  scheduleSave();
+}
+
+function repayDebt() {
+  const debt = gameState.bank.debt;
+  if (debt <= 0) return;
+  const available = gameState.coins + gameState.bank.balance;
+  if (available <= 0) {
+    notify('Нечем платить!', 'error');
+    return;
+  }
+  const pay = Math.min(debt, available);
+  let remaining = pay;
+  if (gameState.coins >= remaining) {
+    gameState.coins -= remaining;
+    remaining = 0;
+  } else {
+    remaining -= gameState.coins;
+    gameState.coins = 0;
+    gameState.bank.balance -= remaining;
+  }
+  gameState.bank.debt -= pay;
+  notify(`💸 Выплачено ${formatNumber(pay)} в счёт долга`, 'gold');
+  if (gameState.bank.debt <= 0) {
+    gameState.bank.debt = 0;
+    gameState.bank.penaltyLevel = 0;
+    notify('✅ Долг полностью погашен!', 'green');
+  }
+  updateAllUI();
+  renderBankModal();
+  scheduleSave();
+}
+
+function checkCreditOverdue() {
+  const bank = gameState.bank;
+  const credit = bank.credit;
+  if (!credit.active) return;
+  if (Date.now() < credit.dueAt) return;
+
+  // Кредит просрочен — считаем недостачу
+  const owed = credit.owed;
+  const available = gameState.coins + bank.balance;
+  const deficit = Math.max(0, owed - available);
+  const deficitPercent = deficit / owed;
+
+  let penaltyLevel = 0;
+  if (deficitPercent <= 0) {
+    // Всё есть — просто забираем
+    repayCreditFromAll();
+    return;
+  } else if (deficitPercent < 0.10) {
+    penaltyLevel = 1;
+  } else if (deficitPercent < 0.50) {
+    penaltyLevel = 2;
+  } else {
+    penaltyLevel = 3;
+  }
+
+  bank.penaltyLevel = penaltyLevel;
+
+  // Применяем наказание
+  if (penaltyLevel >= 3) {
+    applySeverePenalty(owed, deficit);
+  } else {
+    // Для уровней 1-2 просто блокируем банк и оставляем долг
+    bank.credit = { active: false, amount: 0, owed: 0, dueAt: 0 };
+    bank.debt = deficit;
+    showCreditViolationModal(penaltyLevel, owed, deficit);
+    notify(`🚨 Нарушение кредита (уровень ${penaltyLevel})! Долг: ${formatNumber(deficit)}`, 'error');
+  }
+
+  updateAllUI();
+  scheduleSave();
+}
+
+function repayCreditFromAll() {
+  const bank = gameState.bank;
+  let remaining = bank.credit.owed;
+  if (gameState.coins >= remaining) {
+    gameState.coins -= remaining;
+    remaining = 0;
+  } else {
+    remaining -= gameState.coins;
+    gameState.coins = 0;
+    bank.balance -= remaining;
+    remaining = 0;
+  }
+  bank.credit = { active: false, amount: 0, owed: 0, dueAt: 0 };
+  bank.debt = 0;
+  bank.penaltyLevel = 0;
+  notify('✅ Кредит автоматически погашен', 'green');
+}
+
+function applySeverePenalty(owed, deficit) {
+  const bank = gameState.bank;
+  let remaining = owed;
+
+  // 1. Кошелёк
+  const fromCoins = Math.min(gameState.coins, remaining);
+  gameState.coins -= fromCoins;
+  remaining -= fromCoins;
+
+  // 2. Банк
+  if (remaining > 0) {
+    const fromBank = Math.min(bank.balance, remaining);
+    bank.balance -= fromBank;
+    remaining -= fromBank;
+  }
+
+  // 3. Рыбы (с самых дешёвых!)
+  if (remaining > 0) {
+    const fishEntries = Object.entries(gameState.inventory)
+      .map(([id, count]) => {
+        const fish = fishList.find(f => f.id === id);
+        return { id, count, fish, value: calcFishValue(fish), total: calcFishValue(fish) * count };
+      })
+      .filter(e => e.fish)
+      .sort((a, b) => a.value - b.value); // Сначала дешёвые
+
+    for (const entry of fishEntries) {
+      if (remaining <= 0) break;
+      while (entry.count > 0 && remaining > 0) {
+        const val = entry.value;
+        if (remaining >= val) {
+          remaining -= val;
+          entry.count--;
+          gameState.inventory[entry.id]--;
+          if (gameState.inventory[entry.id] <= 0) delete gameState.inventory[entry.id];
+        } else {
+          // Не хватает на целую рыбу — забираем и учитываем остаток как прощённый
+          remaining = 0;
+          entry.count--;
+          gameState.inventory[entry.id]--;
+          if (gameState.inventory[entry.id] <= 0) delete gameState.inventory[entry.id];
+        }
+      }
+    }
+  }
+
+  // 4. Если всё ещё осталось — записываем остаток как долг
+  if (remaining > 0) {
+    bank.debt = remaining;
+  } else {
+    bank.debt = 0;
+    bank.penaltyLevel = 0;
+  }
+
+  bank.credit = { active: false, amount: 0, owed: 0, dueAt: 0 };
+  showCreditViolationModal(3, owed, remaining);
+  notify(`💀 Конфискация! Остаток долга: ${formatNumber(remaining)}`, 'error');
+}
+
+function showCreditViolationModal(level, owed, deficit) {
+  const titles = ['', '⚠️ Предупреждение', '🚫 Блокировка банка', '💀 КОНФИСКАЦИЯ'];
+  const messages = [
+    '',
+    `Вы не выплатили кредит вовремя.\nНедостача: ${formatNumber(deficit)}\nПожалуйста, выплатите долг как можно скорее. Банк продолжает работать.`,
+    `Вы не выплатили кредит вовремя.\nНедостача: ${formatNumber(deficit)}\nБанк заблокирован, проценты не начисляются. Деньги не списываются принудительно. Погасите долг для разблокировки.`,
+    `Вы не выплатили кредит вовремя.\nНедостача: ${formatNumber(deficit)}\nВСЕ ваши средства (кошелёк, банк, рыбы) конфискованы в счёт долга. Остаток: ${formatNumber(deficit)}. Все будущие доходы будут идти в счёт долга.`
+  ];
+
+  const modal = $('creditViolationModal');
+  if (!modal) return;
+  $('cvmTitle').textContent = titles[level];
+  $('cvmMessage').textContent = messages[level];
+  $('cvmTitle').style.color = ['', '#fbbf24', '#f97316', '#f43f5e'][level];
+  modal.classList.add('active');
 }
 
 // ============================================================
@@ -962,10 +1337,21 @@ function updateAllUI() {
   shopCoins.textContent = formatNumber(gameState.coins);
   inventoryCoins.textContent = formatNumber(gameState.coins);
 
+  // Плашка аквариума — скрыта, пока не куплен
+  const aqBar = document.querySelector('.aquarium-boost-bar');
+  if (aqBar) {
+    if (gameState.upgrades.aqLevel === 0 && gameState.aquarium.length === 0) {
+      aqBar.style.display = 'none';
+    } else {
+      aqBar.style.display = 'flex';
+    }
+  }
+
   const slots = getAqSlots();
-  const aqBonus = getAquariumBonus();
+  const aqSellBonus = getAquariumSellBonus();
+  const aqLuckBonus = getAquariumLuckBonus();
   aqBadge.textContent = `${gameState.aquarium.length}/${slots}`;
-  aqBoostValue.textContent = '+' + Math.floor(aqBonus * 100) + '%';
+  aqBoostValue.textContent = '+' + Math.floor(aqSellBonus * 100) + '%';
   aqCount.textContent = `${gameState.aquarium.length}/${slots}`;
 
   const showMinigame = gameState.upgrades.minigames;
@@ -996,6 +1382,39 @@ function updateAllUI() {
     autorollSettingsBtn.classList.remove('locked');
   } else {
     autorollSettingsBtn.classList.add('locked');
+  }
+
+  // Плашка банка на главном экране
+  const bankBar = $('bankMainBar');
+  if (bankBar) {
+    if (gameState.bank.level > 0) {
+      bankBar.classList.remove('hidden');
+      const info = getBankInfo();
+      $('bankMainBalance').textContent = formatNumber(gameState.bank.balance);
+      $('bankMainRate').textContent = `+${info.rate}%/час`;
+    } else {
+      bankBar.classList.add('hidden');
+    }
+  }
+
+  // Таймер кредита на главном экране
+  const creditBar = $('creditMainBar');
+  if (creditBar) {
+    if (gameState.bank.credit.active) {
+      creditBar.classList.remove('hidden');
+      const left = Math.max(0, gameState.bank.credit.dueAt - Date.now());
+      const sec = Math.ceil(left / 1000);
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      $('creditMainAmount').textContent = formatNumber(gameState.bank.credit.owed);
+      $('creditMainTimer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    } else if (gameState.bank.debt > 0) {
+      creditBar.classList.remove('hidden');
+      $('creditMainAmount').textContent = formatNumber(gameState.bank.debt);
+      $('creditMainTimer').textContent = 'ДОЛГ';
+    } else {
+      creditBar.classList.add('hidden');
+    }
   }
 
   renderShop();
@@ -1103,19 +1522,34 @@ function renderBook() {
   if (!container) return;
   container.innerHTML = '';
 
+  renderRaritySummary();
+
   const sorted = [...fishList].sort((a, b) =>
     rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity)
   );
   const totalChance = fishList.reduce((s, f) => s + f.chance, 0);
+  const currentChances = calcCurrentChances();
 
   sorted.forEach(fish => {
     const isCaught = !!gameState.caughtSpecies[fish.id];
-    const rawPercent = fish.chance / totalChance * 100;
-    const chancePercent = formatChancePercent(rawPercent);
-    const oneIn = fish.chance > 0 ? Math.round(totalChance / fish.chance) : '∞';
+    const basePercent = fish.chance / totalChance * 100;
+    const baseStr = formatChancePercent(basePercent);
+    const baseOneIn = fish.chance > 0 ? Math.round(totalChance / fish.chance) : '∞';
+    
+    const cur = currentChances[fish.id];
+    const curStr = formatChancePercent(cur.percent);
+    const curOneIn = isFinite(cur.oneIn) ? formatNumber(cur.oneIn) : '∞';
 
     const card = document.createElement('div');
     card.className = 'fish-card';
+
+    const chanceHtml = isCaught ? `
+      <div class="fc-meta">🎲 Базовый: <strong>${baseStr}</strong> · 1 из ${formatNumber(baseOneIn)}</div>
+      <div class="fc-meta" style="color:#4ade80;">✨ Текущий: <strong>${curStr}</strong> · 1 из ${curOneIn}</div>
+    ` : `
+      <div class="fc-meta">🎲 Базовый: <strong>${baseStr}</strong> · 1 из ${formatNumber(baseOneIn)}</div>
+      <div class="fc-meta" style="color:#4ade80;">✨ Текущий: <strong>${curStr}</strong> · 1 из ${curOneIn}</div>
+    `;
 
     if (isCaught) {
       card.innerHTML = `
@@ -1123,7 +1557,7 @@ function renderBook() {
         <div class="fc-info">
           <div class="fc-name" style="color: ${getRarityColor(fish.rarity)}">${fish.name}</div>
           <div class="fc-meta">${rarityNames[fish.rarity]} · 💰 ${formatNumber(applyAquariumBoost(calcFishValue(fish)))}</div>
-          <div class="fc-meta">🎲 Шанс: <strong style="color:#fff;">${chancePercent}</strong> · 1 из ${formatNumber(oneIn)}</div>
+          ${chanceHtml}
         </div>
       `;
     } else {
@@ -1132,11 +1566,44 @@ function renderBook() {
         <div class="fc-info">
           <div class="fc-name" style="color: rgba(150,220,255,0.4)">???</div>
           <div class="fc-meta">${rarityNames[fish.rarity]}</div>
-          <div class="fc-meta">🎲 Шанс: <strong style="color:#fff;">${chancePercent}</strong> · 1 из ${formatNumber(oneIn)}</div>
+          ${chanceHtml}
         </div>
       `;
     }
     container.appendChild(card);
+  });
+}
+
+function renderRaritySummary() {
+  const container = $('raritySummary');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const totalChance = fishList.reduce((s, f) => s + f.chance, 0);
+  const maxChance = Math.max(...rarityOrder.map(r =>
+    fishList.filter(f => f.rarity === r).reduce((s, f) => s + f.chance, 0)
+  ));
+
+  rarityOrder.forEach(rarity => {
+    const fishInRarity = fishList.filter(f => f.rarity === rarity);
+    if (fishInRarity.length === 0) return;
+
+    const sum = fishInRarity.reduce((s, f) => s + f.chance, 0);
+    const percent = sum / totalChance * 100;
+    const color = getRarityColor(rarity);
+    const barWidth = maxChance > 0 ? (sum / maxChance) * 100 : 0;
+
+    const row = document.createElement('div');
+    row.className = 'rs-row';
+    row.innerHTML = `
+      <div class="rs-dot" style="background:${color}; color:${color};"></div>
+      <div class="rs-label" style="color:${color};">${rarityNames[rarity]}</div>
+      <div class="rs-bar-wrap">
+        <div class="rs-bar" style="width:${barWidth}%; background:${color};"></div>
+      </div>
+      <div class="rs-chance">${formatChancePercent(percent)}</div>
+    `;
+    container.appendChild(row);
   });
 }
 
@@ -1156,11 +1623,12 @@ function renderAquarium() {
 
     if (aq) {
       const fish = fishList.find(f => f.id === aq.fishId);
-      const bonus = fish.rarity === 'exotic' ? '25' : '10';
+      const sellBonus = fish.rarity === 'exotic' ? '25' : '10';
+      const luckBonus = fish.rarity === 'exotic' ? '1.5' : '0.5';
       slot.innerHTML = `
         <div>${fish.emoji}</div>
         <div class="aq-name">${fish.name}</div>
-        <div class="aq-bonus">+${bonus}%</div>
+        <div class="aq-bonus">+${sellBonus}% 💰 · +${luckBonus}% 🍀</div>
       `;
       slot.addEventListener('click', () => removeFromAquarium(i));
       slot.title = 'Нажмите чтобы убрать';
@@ -1173,8 +1641,9 @@ function renderAquarium() {
     slotsContainer.appendChild(slot);
   }
 
-  const bonus = getAquariumBonus();
-  $('boostValue').textContent = `+${Math.floor(bonus * 100)}%`;
+  const sellBonus = getAquariumSellBonus();
+  const luckBonus = getAquariumLuckBonus();
+  $('boostValue').textContent = `+${Math.floor(sellBonus * 100)}% 💰 / +${(luckBonus * 100).toFixed(1)}% 🍀`;
 
   const avail = $('aquariumAvailable');
   avail.innerHTML = '';
@@ -1199,9 +1668,7 @@ function renderAquarium() {
         <button class="btn-aquarium">🐠 Поместить</button>
       </div>
     `;
-    card.querySelector('.btn-aquarium').addEventListener('click', () => {
-      addToAquarium(fish.id);
-    });
+    card.querySelector('.btn-aquarium').addEventListener('click', () => addToAquarium(fish.id));
     avail.appendChild(card);
   });
 
@@ -1267,7 +1734,6 @@ function renderInventoryModal() {
   sellAllBtn.addEventListener('click', sellAll);
   container.appendChild(sellAllBtn);
 
-  // Точечное обновление qty без полной перерисовки
   container.querySelectorAll('.qty-minus').forEach(btn => {
     btn.addEventListener('click', () => {
       const fishId = btn.dataset.fish;
@@ -1467,7 +1933,6 @@ function renderMinigames() {
         mg.run();
       } catch (e) {
         console.error('Minigame error', e);
-        // Возвращаем токен при ошибке
         gameState.minigameTokens += 1;
         notify('Ошибка мини-игры. Жетон возвращён.', 'error');
         updateAllUI();
@@ -1670,7 +2135,6 @@ function renderCasinoFishList() {
     return;
   }
 
-  // Та же сортировка, что и в инвентаре (common сверху)
   const sorted = keys.sort((a, b) => {
     const fa = fishList.find(f => f.id === a);
     const fb = fishList.find(f => f.id === b);
@@ -1680,7 +2144,7 @@ function renderCasinoFishList() {
   sorted.forEach(fishId => {
     const fish = fishList.find(f => f.id === fishId);
     const count = gameState.inventory[fishId];
-    const baseValue = applyAquariumBoost(calcFishValue(fish));
+    const baseValue = calcFishValue(fish);
 
     const card = document.createElement('div');
     card.className = 'fish-card casino-fish-pick';
@@ -1710,7 +2174,7 @@ function renderCasinoMultipliers() {
   const count = gameState.inventory[fishId] || 0;
   if (count < 1) { renderCasino(); return; }
 
-  const baseValue = applyAquariumBoost(calcFishValue(fish));
+  const baseValue = calcFishValue(fish);
   const chances = casinoChances[fish.rarity];
 
   const sel = $('casinoSelected');
@@ -1732,6 +2196,7 @@ function renderCasinoMultipliers() {
       x${m}
       <span class="cm-chance">${chances[m]}% шанс</span>
       <span class="cm-reward">💰${formatNumber(baseValue * m)}</span>
+      <span class="cm-penalty">-${formatNumber(baseValue)} при провале</span>
     `;
     btn.addEventListener('click', () => playCasino(fishId, m));
     container.appendChild(btn);
@@ -1746,7 +2211,7 @@ function playCasino(fishId, mult) {
   if (have < 1) { notify('Нет такой рыбы', 'error'); renderCasino(); return; }
 
   const fish = fishList.find(f => f.id === fishId);
-  const baseValue = applyAquariumBoost(calcFishValue(fish));
+  const baseValue = calcFishValue(fish);
   const chance = casinoChances[fish.rarity][mult];
 
   gameState.inventory[fishId] -= 1;
@@ -1759,13 +2224,20 @@ function playCasino(fishId, mult) {
     gameState.coins += reward;
     notify(`🎰 УСПЕХ! ${fish.name} x${mult} → 💰${formatNumber(reward)}`, 'gold');
   } else {
-    notify(`🎰 Провал! ${fish.name} потеряна`, 'error');
+    // Списываем стоимость рыбы из кошелька (до 0), банк защищён
+    const lost = Math.min(baseValue, gameState.coins);
+    gameState.coins -= lost;
+    const forgiven = baseValue - lost;
+    if (forgiven > 0) {
+      notify(`🎰 Провал! ${fish.name} потеряна. Списано 💰${formatNumber(lost)} (остаток ${formatNumber(forgiven)} прощён)`, 'error');
+    } else {
+      notify(`🎰 Провал! ${fish.name} потеряна. Списано 💰${formatNumber(lost)}`, 'error');
+    }
   }
 
   updateAllUI();
   scheduleSave();
 
-  // Сохраняем выбор, если рыба ещё есть
   if ((gameState.inventory[fishId] || 0) > 0) {
     casinoSelectedFishId = fishId;
     renderCasinoMultipliers();
@@ -1791,7 +2263,6 @@ function generateResetCode() {
 
 function openResetModal() {
   resetCode = generateResetCode();
-  // Показываем код ТОЛЬКО в предупреждении (до полей)
   $('resetCode1').textContent = resetCode;
   const input1 = $('resetInput1');
   const input2 = $('resetInput2');
@@ -1867,6 +2338,11 @@ function performFullReset() {
   };
   gameState.autorollFilters = { rarities: [], species: [], minPrice: 0 };
   gameState.autorollActive = false;
+  gameState.bank = {
+    level: 0, balance: 0, lastTick: Date.now(),
+    credit: { active: false, amount: 0, owed: 0, dueAt: 0 },
+    debt: 0, penaltyLevel: 0,
+  };
   manualRollsCount = 0;
   pendingCatch = null;
   for (const k in qtyState) delete qtyState[k];
@@ -1943,6 +2419,48 @@ $('casinoBtn').addEventListener('click', () => {
   $('casinoModal').classList.add('active');
 });
 
+// Банк
+const bankBtn = $('bankBtn');
+if (bankBtn) bankBtn.addEventListener('click', openBankModal);
+const bankMainBar = $('bankMainBar');
+if (bankMainBar) bankMainBar.addEventListener('click', openBankModal);
+
+// Депозит / снятие
+const depositBtn = $('depositBtn');
+if (depositBtn) {
+  depositBtn.addEventListener('click', () => {
+    const val = parseInt($('depositInput').value) || 0;
+    depositToBank(val);
+  });
+}
+const withdrawBtn = $('withdrawBtn');
+if (withdrawBtn) {
+  withdrawBtn.addEventListener('click', () => {
+    const val = parseInt($('withdrawInput').value) || 0;
+    withdrawFromBank(val);
+  });
+}
+const depositAllBtn = $('depositAllBtn');
+if (depositAllBtn) {
+  depositAllBtn.addEventListener('click', () => {
+    depositToBank(gameState.coins);
+  });
+}
+const withdrawAllBtn = $('withdrawAllBtn');
+if (withdrawAllBtn) {
+  withdrawAllBtn.addEventListener('click', () => {
+    withdrawFromBank(gameState.bank.balance);
+  });
+}
+
+// Закрытие модалки нарушения
+const cvmOkBtn = $('cvmOkBtn');
+if (cvmOkBtn) {
+  cvmOkBtn.addEventListener('click', () => {
+    $('creditViolationModal').classList.remove('active');
+  });
+}
+
 $('buyTokenBtn').addEventListener('click', () => {
   if (gameState.coins < 1000) { notify('Недостаточно монет!', 'error'); return; }
   if (gameState.minigameTokens >= MINIGAME_TOKEN_MAX) {
@@ -1992,7 +2510,6 @@ $('resetInput2').addEventListener('keydown', e => {
   if (e.key === 'Enter') confirmResetStep2();
 });
 
-// Закрытие модалок по Escape
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
@@ -2010,6 +2527,40 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.remove('active');
   });
 });
+
+// ============================================================
+// === ПРОВЕРКА КРЕДИТА ===
+// ============================================================
+
+setInterval(() => {
+  // Обновляем таймер кредита в модалке банка
+  if ($('bankModal').classList.contains('active')) {
+    const credit = gameState.bank.credit;
+    if (credit.active) {
+      const creditTimerEl = document.querySelector('.credit-timer');
+      if (creditTimerEl) {
+        const leftMs = Math.max(0, credit.dueAt - Date.now());
+        const leftSec = Math.ceil(leftMs / 1000);
+        const m = Math.floor(leftSec / 60);
+        const s = leftSec % 60;
+        creditTimerEl.innerHTML = `⏳ Вернуть через: <strong>${m}:${s.toString().padStart(2, '0')}</strong>`;
+      }
+    }
+  }
+  // Обновляем таймер на главном экране
+  const creditMainBar = $('creditMainBar');
+  if (creditMainBar && !creditMainBar.classList.contains('hidden')) {
+    if (gameState.bank.credit.active) {
+      const left = Math.max(0, gameState.bank.credit.dueAt - Date.now());
+      const sec = Math.ceil(left / 1000);
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      $('creditMainTimer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    }
+  }
+  // Проверяем просрочку
+  checkCreditOverdue();
+}, 1000);
 
 // ============================================================
 // === ПУЗЫРИ ===
@@ -2041,4 +2592,5 @@ if (ok) {
   updateAllUI();
   setTimeout(updateAllUI, 100);
   setTimeout(showUpdateLog, 400);
+  startBankTick();
 }
